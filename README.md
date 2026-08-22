@@ -1,5 +1,5 @@
 # bsol-wasm
-Build wasm for [https://mirgo2.co.uk/bridgesolver/](https://mirgo2.co.uk/bridgesolver/) (by John Goacher)
+Build wasm for [https://mirgo2.co.uk/bridgesolver/](Bridge Solver Online, by John Goacher)
 
 This package contains everything needed to compile your existing
 application (DDummy.cpp as the wrapper, exporting `handleDDSRequest`)
