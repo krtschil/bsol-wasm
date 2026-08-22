@@ -53,9 +53,9 @@ An unused function `int playCard` was deactivated and a few cleanup
 changes were also applied to eliminate compiler warnings:
 
 ```
-const char* suitLetters  = "SHDCN";				    /*<--- Added "const"*/
-const char* cardLetters = "23456789TJQKA";		/*<--- Added "const"*/
-const char* direction = "nesw";					      /*<--- Added "const"*/
+const char* suitLetters  = "SHDCN";          /*<--- Added "const"*/
+const char* cardLetters = "23456789TJQKA";    /*<--- Added "const"*/
+const char* direction = "nesw";              /*<--- Added "const"*/
 ```
 
 ## Build
@@ -67,7 +67,7 @@ chmod +x build.sh
 
 Output: `out/dds_new.js` + `out/dds_new.wasm`.
 
-## What has already been verified
+## What has been verified
 
 - All `library_src/*.cpp` files compile cleanly with `emcc -std=c++20`.
 - `DDummy.cpp` (with only the `time.h` addition) compiles unchanged
@@ -81,13 +81,3 @@ Output: `out/dds_new.js` + `out/dds_new.wasm`.
   and tested using the same global-`Module` loading pattern your
   existing `dds.js` uses (not `MODULARIZE`), so it should be a drop-in
   replacement for your current front-end integration.
-
-## Known open points for production use
-
-- Multithreading (`SolverContext`) was not tested; this build is
-  single-threaded (no `-pthread`, no `SharedArrayBuffer`).
-- The 80-byte limit for PBN deal strings (`DdTableDealPBN.cards[80]`)
-  carries over unchanged from the old version – may be relevant for
-  hands with many voids.
-- Recommended: test with your own real production requests before
-  rollout, especially edge cases like claims or doubleton situations.
