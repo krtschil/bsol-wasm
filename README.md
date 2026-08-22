@@ -57,6 +57,18 @@ const char* cardLetters = "23456789TJQKA";    //<--- Added "const"
 const char* direction = "nesw";              //<--- Added "const"
 ```
 
+## Multi threading
+
+The package is built **without** `-pthread / -s USE_PTHREADS=1` and therefore does
+not use multi threading. Parallelization is handled via multiple webworkers when a batch of boards 
+is being analyzed:
+
+- the build script doesn't include `-pthread`,
+- `DDummy.cpp` consistently calls `InitStart(1,1)` (forcing single-threaded operation internally)
+
+Multi threading uses `SharedArrayBuffer` which requires COI headers `(Cross-Origin-Opener-Policy / Cross-Origin-Embedder-Policy)` 
+to be sent by the web server. In this setup these headers are not needed.
+
 ## Build
 
 ```bash
