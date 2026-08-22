@@ -69,8 +69,7 @@ Output: `out/dds_new.js` + `out/dds_new.wasm`.
 ## What has been verified
 
 - All `library_src/*.cpp` files compile cleanly with `emcc -std=c++20`.
-- `DDummy.cpp` (with only the `time.h` addition) compiles unchanged
-  against `compat/dll.h`.
+- `DDummy.cpp` (with above changes) compiles unchanged against `compat/dll.h`.
 - A full request through `handleDDSRequest` (table calculation + opening
   leads) runs successfully in Node.js and returns a valid JSON response.
 - The 20 values of the double-dummy table were checked against DDS3's
