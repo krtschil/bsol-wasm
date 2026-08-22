@@ -33,7 +33,7 @@ https://emscripten.org/docs/getting_started/downloads.html). Tested
 with Emscripten 3.1.6; the original repo itself pins 5.0.7 via Bazel –
 both should work, but a newer version is recommended for production.
 
-## The one manual change needed in DDummy.cpp
+## Changes made to DDummy.cpp
 
 `DDummy.cpp` calls `time()` but never includes `<time.h>` directly.
 This used to work only because some other include chain (e.g. via
