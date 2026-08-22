@@ -4,8 +4,8 @@ Build wasm for [Bridge Solver Online](https://mirgo2.co.uk/bridgesolver/) (by Jo
 This package contains everything needed to compile the existing BSOL
 application (DDummy.cpp as the wrapper, exporting `handleDDSRequest`)
 against the modernised double-dummy solver from
-https://github.com/dds-bridge/dds (as of the `develop` branch at test
-time), without structurally changing DDummy.cpp.
+https://github.com/dds-bridge/dds, without structurally changing DDummy.cpp.
+It is a replacement for the the wasm module based on dds-2.5.3 from Bo Haglund.
 
 ## Contents
 
