@@ -48,7 +48,15 @@ that only becomes visible now. Simply add:
 ```
 
 That is the only change that was required in your actual application
-code to compile against the new library.
+code to compile against the new library. 
+An unused function `int playCard` was deactivated and a few cleanup 
+changes were also applied to eliminate compiler warnings:
+
+```
+const char* suitLetters  = "SHDCN";				    /*<--- Added "const"*/
+const char* cardLetters = "23456789TJQKA";		/*<--- Added "const"*/
+const char* direction = "nesw";					      /*<--- Added "const"*/
+```
 
 ## Build
 
