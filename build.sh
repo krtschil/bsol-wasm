@@ -31,7 +31,7 @@ LIBINC="-I $LIB -I $LIB/api"
 APPINC="-I $COMPAT -I $LIB -I $LIB/api"
 
 echo "== 1) Compiling all DDS3 library sources =="
-for f in $(find "$LIB" -name "*.cpp"); do
+for f in $(find "$LIB" -name "*.cpp" | sort); do
   base=$(echo "$f" | sed "s#$LIB/##" | tr '/' '_')
   emcc -std=c++20 -O3 $LIBINC -c "$f" -o "$OUT/obj/${base%.cpp}.o"
 done
