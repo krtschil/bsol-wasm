@@ -11,7 +11,7 @@
 #   chmod +x build.sh
 #   ./build.sh
 
-set -e 
+set -e
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 LIB="$ROOT/library_src"
