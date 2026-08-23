@@ -7,7 +7,7 @@ against the modernised double-dummy solver from
 https://github.com/dds-bridge/dds, without structurally changing DDummy.cpp.
 It is a replacement for the the wasm module based on dds-2.5.3 from Bo Haglund.
 
-## Contents
+## Contents 
 
 - `library_src/` – a 1:1 copy of `library/src/` from dds-bridge/dds.
   This is the complete new solver core (39 files). Note that there is
