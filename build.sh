@@ -33,25 +33,25 @@ APPINC="-I $COMPAT -I $LIB -I $LIB/api"
 echo "== 1) Compiling all DDS3 library sources =="
 for f in $(find "$LIB" -name "*.cpp"); do
   base=$(echo "$f" | sed "s#$LIB/##" | tr '/' '_')
-  emcc -std=c++20 -O3 $LIBINC -c "$f" -o "$OUT/obj/${base%.cpp}.o"
+  emcc -std=c++20 -O3 -flto -DNDEBUG $LIBINC -c "$f" -o "$OUT/obj/${base%.cpp}.o"
 done
 
 echo "== 2) Archiving library into libdds3.a =="
 emar rcs "$OUT/libdds3.a" "$OUT"/obj/*.o
 
 echo "== 3) Compiling compatibility shim =="
-emcc -std=c++20 -O3 $APPINC -c "$COMPAT/compat.cpp" -o "$OUT/compat.o"
+emcc -std=c++20 -O3 -flto -DNDEBUG $APPINC -c "$COMPAT/compat.cpp" -o "$OUT/compat.o"
 
 echo "== 4) Compiling unmodified app files (DDummy.cpp, timer.cpp) =="
 # NOTE: DDummy.cpp needs one pre-existing, DDS-unrelated fix: add
 #   #include <time.h>
 # near its other includes (for the time() call). Older/other libc header
 # chains pulled this in transitively; modern Emscripten's libc does not.
-emcc -std=c++20 -O3 $APPINC -I "$APP" -c "$APP/DDummy.cpp" -o "$OUT/DDummy.o"
-emcc -std=c++20 -O3 $APPINC -I "$APP" -c "$APP/timer.cpp"  -o "$OUT/timer.o"
+emcc -std=c++20 -O3 -flto -DNDEBUG $APPINC -I "$APP" -c "$APP/DDummy.cpp" -o "$OUT/DDummy.o"
+emcc -std=c++20 -O3 -flto -DNDEBUG $APPINC -I "$APP" -c "$APP/timer.cpp"  -o "$OUT/timer.o"
 
 echo "== 5) Linking final dds.js / dds.wasm =="
-emcc -std=c++20 -O3 \
+emcc -std=c++20 -O3 -flto \
   "$OUT/DDummy.o" "$OUT/compat.o" "$OUT/timer.o" "$OUT/libdds3.a" \
   -s WASM=1 \
   -s ALLOW_MEMORY_GROWTH=1 \
