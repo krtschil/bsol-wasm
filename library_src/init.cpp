@@ -7,9 +7,12 @@
    See LICENSE and README.
 */
 
+#include <algorithm>
 #include <cstring>
 #include <cstdio>
 #include <iomanip>
+#include <ios>
+#include <memory>
 #include <sstream>
 
 #include <calc_tables.hpp>
@@ -18,11 +21,13 @@
 #include <solve_board.hpp>
 #include <lookup_tables/lookup_tables.hpp>
 #include <solver_context/solver_context.hpp>
+#include <string>
 #include <system/scheduler.hpp>
 #include <system/system.hpp>
 #include <system/thread_mgr.hpp>
 #include <trans_table/trans_table.hpp>
 #include <utility/constants.h>
+#include <api/dll.h>
 #include <utility/debug.h>
 
 System sysdep;
@@ -487,6 +492,9 @@ void STDCALL ErrorMessage(int code, char line[80])
       break;
     case RETURN_CHUNK_SIZE:
       strcpy(line, TEXT_CHUNK_SIZE);
+      break;
+    case RETURN_PAR_TABLE_FAULT:
+      strcpy(line, TEXT_PAR_TABLE_FAULT);
       break;
     default:
       strcpy(line, "Not a DDS error code");

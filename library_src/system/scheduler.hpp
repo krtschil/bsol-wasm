@@ -14,14 +14,14 @@
 #include <vector>
 #include <utility>
 
-#include <api/dds.h>
+#include <api/dds_data_types.hpp>
 #include <system/timer.hpp>
 // TimeStatList is required when DDS_SCHEDULER is enabled.
 #ifdef DDS_SCHEDULER
 #include <system/time_stat_list.hpp>
 #endif
 
-#define HASH_MAX 200
+constexpr int HASH_MAX = 200;
 
 #ifdef DDS_SCHEDULER
   #define START_BLOCK_TIMER scheduler.StartBlockTimer()
