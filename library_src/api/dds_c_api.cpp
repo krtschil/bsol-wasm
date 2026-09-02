@@ -18,19 +18,7 @@
 
 #include <api/dds_c_api.h>
 #include <api/dds_api.hpp>
-/* Upstream regression fix: dds_c_api.h used to pull in <api/dll.h>
-   transitively (which declares the legacy PascalCase functions this
-   file forwards to directly: Par, SidesPar, DealerPar, DealerParBin,
-   SidesParBin, ConvertToDealerTextFormat, ConvertToSidesTextFormat,
-   GetDDSInfo, ErrorMessage). A later refactor replaced that with the
-   narrower <api/dds_c_data_types.h> (struct types only, no function
-   declarations), but this file was never updated to include dll.h
-   directly - so those calls now fail with "use of undeclared
-   identifier" against a fresh clone of the develop branch. This file's
-   own top-of-file comment says it forwards "straight to the
-   corresponding legacy dll.h function", confirming the intent; this
-   just restores the include that intent already assumed was present. */
-#include <api/dll.h>
+#include <api/dll.h>   /* legacy Par/SidesPar/DealerPar/.../GetDDSInfo/ErrorMessage */
 
 /* This shim is the boundary between the C++ implementation and pure-C FFI
    consumers (JVM/FFM, .NET, ctypes). Two things must never cross it:
