@@ -12,16 +12,16 @@
 #include <algorithm>
 #include <atomic>
 #include <condition_variable>
-#include <cstddef>
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <mutex>
 #include <thread>
-#include <utility>
 #include <vector>
 
-#include <api/dds_data_types.hpp>
+#if defined(__EMSCRIPTEN__)
+#include <api/dds.h>
+#endif
+#include <api/dll.h>
 
 
 namespace

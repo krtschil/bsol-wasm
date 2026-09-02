@@ -1,6 +1,6 @@
 #pragma once
 
-#include <api/dds_data_types.hpp>
+#include <api/dll.h>
 
 namespace dds
 {

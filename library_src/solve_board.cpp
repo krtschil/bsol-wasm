@@ -11,7 +11,6 @@
 
 #include "solve_board.hpp"
 #include <api/solve_board.hpp>
-#include <api/dll.h>
 #include <solver_if.hpp>
 #include <pbn.hpp>
 #include <system/memory.hpp>
@@ -19,7 +18,6 @@
 #include <system/scheduler.hpp>
 #include <system/system.hpp>
 #include <utility/debug.h>
-#include <vector>
 
 
 extern Scheduler scheduler;

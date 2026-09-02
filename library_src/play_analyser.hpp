@@ -11,7 +11,7 @@
 
 #include <vector>
 
-#include <api/dds_data_types.hpp>
+#include <api/dll.h>
 
 
 void detect_play_duplicates(

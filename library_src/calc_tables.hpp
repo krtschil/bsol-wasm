@@ -11,7 +11,7 @@
 
 #include <vector>
 
-#include <api/dds_data_types.hpp>
+#include <api/dll.h>
 #include <solver_context/solver_context.hpp>
 
 
@@ -54,11 +54,3 @@ auto detect_calc_duplicates(
   const Boards& bds,
   std::vector<int>& uniques,
   std::vector<int>& crossrefs) -> void;
-
-// Match SolveBoard's remaining-trick count from remainCards alone.
-auto remaining_tricks_from_holdings(
-  unsigned int const cards[DDS_HANDS][DDS_SUITS]) -> int;
-
-auto declarer_tricks_from_leader_score(
-  int remaining_tricks,
-  int leader_side_score) -> int;

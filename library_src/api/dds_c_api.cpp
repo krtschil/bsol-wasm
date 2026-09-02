@@ -1,36 +1,16 @@
 /*
    DDS, a bridge double dummy solver.
 
-   Implementation of the pure-C ABI shim. Most functions cast the opaque
-   void* handle back to SolverContext* and forward to the reference-taking
+   Implementation of the pure-C ABI shim. Each function casts the opaque
+   void* handle back to SolverContext* and forwards to the reference-taking
    dds_* functions declared in dds_api.hpp. SolverConfig / TTKind stay internal
    to this translation unit and never cross the shim boundary.
-
-   A second, smaller group of functions needs no SolverContext at all: they
-   operate on already-produced data (a DdTableResults/ParResultsMaster) or
-   static library info. Those take no handle and forward straight to the
-   corresponding legacy dll.h function, which is already POD-only and
-   extern "C" — there is no C++ type to keep off the ABI boundary, so no
-   dds_api.hpp intermediate is needed for them.
 
    See LICENSE and README.
 */
 
 #include <api/dds_c_api.h>
 #include <api/dds_api.hpp>
-/* Upstream regression fix: dds_c_api.h used to pull in <api/dll.h>
-   transitively (which declares the legacy PascalCase functions this
-   file forwards to directly: Par, SidesPar, DealerPar, DealerParBin,
-   SidesParBin, ConvertToDealerTextFormat, ConvertToSidesTextFormat,
-   GetDDSInfo, ErrorMessage). A later refactor replaced that with the
-   narrower <api/dds_c_data_types.h> (struct types only, no function
-   declarations), but this file was never updated to include dll.h
-   directly - so those calls now fail with "use of undeclared
-   identifier" against a fresh clone of the develop branch. This file's
-   own top-of-file comment says it forwards "straight to the
-   corresponding legacy dll.h function", confirming the intent; this
-   just restores the include that intent already assumed was present. */
-#include <api/dll.h>
 
 /* This shim is the boundary between the C++ implementation and pure-C FFI
    consumers (JVM/FFM, .NET, ctypes). Two things must never cross it:
@@ -81,22 +61,6 @@ DLLEXPORT int dds_c_solve_board(DDS_C_SOLVER_CTX ctx,
     }
 }
 
-DLLEXPORT int dds_c_solve_board_pbn(DDS_C_SOLVER_CTX ctx,
-                                    const struct DealPBN* dlpbn,
-                                    int target, int solutions, int mode,
-                                    struct FutureTricks* futp)
-{
-    if (ctx == nullptr || dlpbn == nullptr || futp == nullptr)
-        return RETURN_UNKNOWN_FAULT;
-
-    try {
-        return dds_solve_board_pbn(static_cast<SolverContext*>(ctx),
-            *dlpbn, target, solutions, mode, futp);
-    } catch (...) {
-        return RETURN_UNKNOWN_FAULT;
-    }
-}
-
 DLLEXPORT int dds_c_calc_dd_table(DDS_C_SOLVER_CTX ctx,
                                   const struct DdTableDeal* deal,
                                   struct DdTableResults* results)
@@ -122,23 +86,6 @@ DLLEXPORT int dds_c_calc_par(DDS_C_SOLVER_CTX ctx,
 
     try {
         return dds_calc_par(static_cast<SolverContext*>(ctx),
-            *deal, vulnerable, results, par);
-    } catch (...) {
-        return RETURN_UNKNOWN_FAULT;
-    }
-}
-
-DLLEXPORT int dds_c_calc_par_pbn(DDS_C_SOLVER_CTX ctx,
-                                 const struct DdTableDealPBN* deal,
-                                 int vulnerable,
-                                 struct DdTableResults* results,
-                                 struct ParResults* par)
-{
-    if (ctx == nullptr || deal == nullptr || results == nullptr || par == nullptr)
-        return RETURN_UNKNOWN_FAULT;
-
-    try {
-        return dds_calc_par_pbn(static_cast<SolverContext*>(ctx),
             *deal, vulnerable, results, par);
     } catch (...) {
         return RETURN_UNKNOWN_FAULT;
@@ -255,129 +202,6 @@ DLLEXPORT void dds_c_log_clear(DDS_C_SOLVER_CTX ctx)
 
     try {
         dds_log_clear(static_cast<SolverContext*>(ctx));
-    } catch (...) {
-        // Must not unwind through the C ABI boundary.
-    }
-}
-
-/* --- Context-free utilities: no SolverContext, forward straight to the
-   legacy dll.h function. --- */
-
-DLLEXPORT int dds_c_par_from_table(const struct DdTableResults* table,
-                                   int vulnerable,
-                                   struct ParResults* par)
-{
-    if (table == nullptr || par == nullptr)
-        return RETURN_UNKNOWN_FAULT;
-
-    try {
-        return Par(table, par, vulnerable);
-    } catch (...) {
-        return RETURN_UNKNOWN_FAULT;
-    }
-}
-
-DLLEXPORT int dds_c_sides_par(const struct DdTableResults* table,
-                              struct ParResultsDealer sides_res[2],
-                              int vulnerable)
-{
-    if (table == nullptr || sides_res == nullptr)
-        return RETURN_UNKNOWN_FAULT;
-
-    try {
-        return SidesPar(table, sides_res, vulnerable);
-    } catch (...) {
-        return RETURN_UNKNOWN_FAULT;
-    }
-}
-
-DLLEXPORT int dds_c_dealer_par(const struct DdTableResults* table,
-                               struct ParResultsDealer* par,
-                               int dealer, int vulnerable)
-{
-    if (table == nullptr || par == nullptr)
-        return RETURN_UNKNOWN_FAULT;
-
-    try {
-        return DealerPar(table, par, dealer, vulnerable);
-    } catch (...) {
-        return RETURN_UNKNOWN_FAULT;
-    }
-}
-
-DLLEXPORT int dds_c_dealer_par_bin(const struct DdTableResults* table,
-                                   struct ParResultsMaster* par,
-                                   int dealer, int vulnerable)
-{
-    if (table == nullptr || par == nullptr)
-        return RETURN_UNKNOWN_FAULT;
-
-    try {
-        return DealerParBin(table, par, dealer, vulnerable);
-    } catch (...) {
-        return RETURN_UNKNOWN_FAULT;
-    }
-}
-
-DLLEXPORT int dds_c_sides_par_bin(const struct DdTableResults* table,
-                                  struct ParResultsMaster sides_res[2],
-                                  int vulnerable)
-{
-    if (table == nullptr || sides_res == nullptr)
-        return RETURN_UNKNOWN_FAULT;
-
-    try {
-        return SidesParBin(table, sides_res, vulnerable);
-    } catch (...) {
-        return RETURN_UNKNOWN_FAULT;
-    }
-}
-
-DLLEXPORT int dds_c_convert_to_dealer_text_format(const struct ParResultsMaster* par,
-                                                  char* resp)
-{
-    if (par == nullptr || resp == nullptr)
-        return RETURN_UNKNOWN_FAULT;
-
-    try {
-        return ConvertToDealerTextFormat(par, resp);
-    } catch (...) {
-        return RETURN_UNKNOWN_FAULT;
-    }
-}
-
-DLLEXPORT int dds_c_convert_to_sides_text_format(const struct ParResultsMaster par[2],
-                                                 struct ParTextResults* resp)
-{
-    if (par == nullptr || resp == nullptr)
-        return RETURN_UNKNOWN_FAULT;
-
-    try {
-        return ConvertToSidesTextFormat(par, resp);
-    } catch (...) {
-        return RETURN_UNKNOWN_FAULT;
-    }
-}
-
-DLLEXPORT void dds_c_get_dds_info(struct DDSInfo* info)
-{
-    if (info == nullptr)
-        return;
-
-    try {
-        GetDDSInfo(info);
-    } catch (...) {
-        // Must not unwind through the C ABI boundary.
-    }
-}
-
-DLLEXPORT void dds_c_error_message(int code, char line[80])
-{
-    if (line == nullptr)
-        return;
-
-    try {
-        ErrorMessage(code, line);
     } catch (...) {
         // Must not unwind through the C ABI boundary.
     }

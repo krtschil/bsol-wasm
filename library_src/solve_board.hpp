@@ -11,7 +11,7 @@
 
 #include <vector>
 
-#include <api/dds_data_types.hpp>
+#include <api/dll.h>
 
 
 auto solve_all_boards_n(

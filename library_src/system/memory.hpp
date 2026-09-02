@@ -12,7 +12,7 @@
 
 #include <vector>
 
-#include <api/dds_data_types.hpp>
+#include <api/dds.h>
 #include <moves/moves.hpp>
 #include <system/thread_data.hpp>
 

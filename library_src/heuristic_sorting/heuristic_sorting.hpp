@@ -1,6 +1,6 @@
 #pragma once
 
-#include <api/dds_data_types.hpp>
+#include <api/dds.h>
 
 /// @brief Track information for maintaining position state during move generation.
 /// 

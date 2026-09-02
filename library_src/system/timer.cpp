@@ -8,11 +8,8 @@
 */
 
 
-#include <chrono>
-#include <ctime>
 #include <iostream>
 #include <iomanip>
-#include <ratio>
 #include <sstream>
 
 #include "timer.hpp"

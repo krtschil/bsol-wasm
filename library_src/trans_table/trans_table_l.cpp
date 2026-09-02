@@ -82,16 +82,12 @@
 #include <array>
 #include <cmath>
 #include <cstdlib>
-#include <fstream>
 #include <iomanip>
-#include <ios>
 #include <new>
 
 #include "trans_table_l.hpp"
 
-#include <string>
 #include <utility/constants.h>
-#include <vector>
 
 namespace
 {

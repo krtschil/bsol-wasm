@@ -12,7 +12,6 @@
 #include <vector>
 
 #include <api/dll.h>
-#include <par_validate.hpp>
 
 using namespace std;
 
@@ -114,7 +113,7 @@ struct list_type
 };
 
 
-constexpr int BIGNUM = 9999;
+#define BIGNUM 9999
 
 
 void survey_scores(
@@ -186,18 +185,6 @@ int STDCALL DealerPar(
 {
   /* dealer 0: North 1: East 2: South 3: West */
   /* vulnerable 0: None 1: Both 2: NS 3: EW */
-
-  if (int const check = par_table_checks(tablep); check != RETURN_NO_FAULT)
-    return check;
-
-  /* Both parameters reach array subscripts: vulnerable indexes VUL_LOOKUP
-     below, and dealer propagates into the par tables via pno_list[]. */
-  if (int const check = par_vulnerable_checks(vulnerable);
-      check != RETURN_NO_FAULT)
-    return check;
-
-  if (dealer < 0 || dealer > 3)
-    return RETURN_UNKNOWN_FAULT;
 
   int const * vul_by_side = VUL_LOOKUP[vulnerable];
   data_type data;
@@ -628,27 +615,6 @@ void reduce_contract(
 }
 
 
-/* These tables are indexed by values derived from caller-supplied parameters.
-   Guard the subscript instead of casting to unsigned: the cast turns a
-   negative index into a multi-gigabyte offset, converting a detectable bug
-   into a wild read. With DealerPar()'s range checks in place these should be
-   unreachable, so a "?" in the output means a new defect upstream. */
-
-string contract_text(const int no)
-{
-  if (no < 0 || static_cast<size_t>(no) >= NUMBER_TO_CONTRACT.size())
-    return "?";
-  return NUMBER_TO_CONTRACT[static_cast<size_t>(no)];
-}
-
-string player_text(const int pno)
-{
-  if (pno < 0 || static_cast<size_t>(pno) >= NUMBER_TO_PLAYER.size())
-    return "?";
-  return NUMBER_TO_PLAYER[static_cast<size_t>(pno)];
-}
-
-
 string contract_as_text(
   const DdTableResults& table,
   const int side,
@@ -661,10 +627,10 @@ string contract_as_text(
   const int tb = t[side + 2];
   const int t_max = (ta > tb ? ta : tb);
 
-  return contract_text(no) +
+  return NUMBER_TO_CONTRACT[static_cast<unsigned>(no)] +
     (delta < 0 ? "*-" : "-") +
-    (ta == t_max ? player_text(side) : "") +
-    (tb == t_max ? player_text(side + 2) : "") +
+    (ta == t_max ? NUMBER_TO_PLAYER[static_cast<unsigned>(side)] : "") +
+    (tb == t_max ? NUMBER_TO_PLAYER[static_cast<unsigned>(side + 2)] : "") +
     (delta > 0 ? "+" : "") +
     (delta == 0 ? "" : to_string(delta));
 }
@@ -675,7 +641,7 @@ string sacrifice_as_text(
   const int pno,
   const int down)
 {
-  return contract_text(no) + "-" +
-    player_text(pno) + "-" +
+  return NUMBER_TO_CONTRACT[static_cast<unsigned>(no)] + "-" +
+    NUMBER_TO_PLAYER[static_cast<unsigned>(pno)] + "-" +
     to_string(down);
 }

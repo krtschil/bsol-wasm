@@ -15,11 +15,19 @@
 #include "scheduler.hpp"
 #include <fstream>
 #include <iomanip>
-#include <utility>
-#include <vector>
 #ifdef DDS_SCHEDULER
 #include <system/time_stat_list.hpp>
-#include <utility/debug.h>
+
+// debug.hpp lives in the parent directory; some build configurations
+// may not expose it via include paths for this target. Provide
+// safe fallbacks for the scheduler filename macros if they are
+// not already defined by debug.hpp.
+#ifndef DDS_SCHEDULER_PREFIX
+#define DDS_SCHEDULER_PREFIX "sched"
+#endif
+#ifndef DDS_DEBUG_SUFFIX
+#define DDS_DEBUG_SUFFIX ".txt"
+#endif
 #endif
 
 

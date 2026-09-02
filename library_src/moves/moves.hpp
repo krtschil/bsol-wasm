@@ -12,7 +12,7 @@
 #include <fstream>
 #include <string>
 
-#include <api/dds_data_types.hpp>
+#include <api/dds.h>
 #include <heuristic_sorting/heuristic_sorting.hpp>
 
 /**

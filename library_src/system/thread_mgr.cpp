@@ -13,7 +13,6 @@
 #include <fstream>
 #include <mutex>
 #include <chrono>
-#include <string>
 #include <thread>
 
 #include "thread_mgr.hpp"
