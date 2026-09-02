@@ -1,3 +1,3 @@
 # Changelog
 
-## v1.01 - Benchmark-Tool hinzugefügt
+## v1.01 - Added benchmark tool
