@@ -9,13 +9,17 @@
 
 #include "calc_tables.hpp"
 #include <algorithm>
+#include <limits>
 #include <array>
 #include <numeric>
 #include <vector>
 
+#include <lookup_tables/lookup_tables.hpp>
 #include <pbn.hpp>
+#include <table_deal_validate.hpp>
 #include <solve_board.hpp>
 #include <api/solve_board.hpp>
+#include <api/dll.h>
 #include <solver_if.hpp>
 #include <system/deal_fanout.hpp>
 #include <system/memory.hpp>
@@ -32,6 +36,43 @@ auto calc_all_boards_n(
   SolvedBoards * solvedp,
   int max_threads = 0,
   bool difficulty_sort = true) -> int;
+
+// Match SolveBoard's remaining-trick count from remainCards alone.
+auto remaining_tricks_from_holdings(
+  unsigned int const cards[DDS_HANDS][DDS_SUITS]) -> int
+{
+  int card_count = 0;
+  for (int h = 0; h < DDS_HANDS; h++)
+  {
+    for (int s = 0; s < DDS_SUITS; s++)
+      card_count += count_table[cards[h][s] >> 2];
+  }
+
+  if (card_count % 4)
+    return ((card_count - 4) >> 2) + 2;
+  return ((card_count - 4) >> 2) + 1;
+}
+
+auto declarer_tricks_from_leader_score(
+  int remaining_tricks,
+  int leader_side_score) -> int
+{
+  return remaining_tricks - leader_side_score;
+}
+
+namespace
+{
+
+// solve_same_board's null-window reuse assumes a full 13-trick deal.
+constexpr int kFullDealRemainingTricks = 13;
+
+auto is_full_thirteen_trick_deal(
+  unsigned int const cards[DDS_HANDS][DDS_SUITS]) -> bool
+{
+  return remaining_tricks_from_holdings(cards) == kFullDealRemainingTricks;
+}
+
+}  // namespace
 
 
 auto calc_single_common_internal(
@@ -63,13 +104,29 @@ auto calc_single_common_internal(
   // for subsequent same-board solves to ensure all declarers on the same
   // board share the same transposition table state, which is important
   // for calculation consistency and fixes a previous consistency bug.
+  const bool reuse_same_board =
+    is_full_thirteen_trick_deal(deal.remainCards);
   for (int k = 1; k < DDS_HANDS; k++)
   {
-    int hint = (k == 2 ? fut.score[0] : 13 - fut.score[0]);
-
-    deal.first = k; // Next declarer
-
-    res = solve_same_board(ctx, deal, &fut, hint);
+    deal.first = k;
+    if (reuse_same_board)
+    {
+      // Fast path for full deals: null-window reuse with a partner/opponent hint.
+      const int hint =
+        (k == 2 ? fut.score[0] : kFullDealRemainingTricks - fut.score[0]);
+      res = solve_same_board(ctx, deal, &fut, hint);
+    }
+    else
+    {
+      // Partial deals: solve_same_board hints/reuse are incorrect; full solve.
+      res = solve_board(
+        ctx,
+        deal,
+        bds.target[bno],
+        bds.solutions[bno],
+        bds.mode[bno],
+        &fut);
+    }
 
     if (res == 1)
       solved.solved_board[bno].score[k] = fut.score[0];
@@ -191,6 +248,9 @@ int STDCALL CalcDDtableN(
   DdTableResults * tablep,
   int maxThreads)
 {
+  if (int const check = table_deal_checks(tableDeal); check != RETURN_NO_FAULT)
+    return check;
+
   Deal dl;
   Boards bo;
   SolvedBoards solved;
@@ -223,6 +283,7 @@ int STDCALL CalcDDtableN(
   if (res != 1)
     return res;
 
+  const int tricks = remaining_tricks_from_holdings(tableDeal.cards);
   for (int index = 0; index < DDS_STRAINS; index++)
   {
     int strain = bo.deals[index].trump;
@@ -232,7 +293,8 @@ int STDCALL CalcDDtableN(
     for (int first = 0; first < DDS_HANDS; first++)
     {
       tablep->res_table[strain][ rho[first] ] =
-        13 - solved.solved_board[index].score[first];
+        declarer_tricks_from_leader_score(
+          tricks, solved.solved_board[index].score[first]);
     }
   }
   return RETURN_NO_FAULT;
@@ -261,6 +323,17 @@ int STDCALL CalcAllTablesN(
      mode = 3: par calculation, vulnerability EW
          mode = -1: no par calculation */
 
+  // dealsp->deals is a fixed MAXNOOFTABLES * DDS_STRAINS array, and the
+  // capacity check below multiplies by count. Bound no_of_tables first, so
+  // that multiply cannot overflow signed int and wrap past the check, and so
+  // the per-deal loops cannot read past the array.
+  if (dealsp == nullptr)
+    return RETURN_UNKNOWN_FAULT;
+
+  if (dealsp->no_of_tables < 0 ||
+      dealsp->no_of_tables > MAXNOOFTABLES * DDS_STRAINS)
+    return RETURN_TOO_MANY_TABLES;
+
   Boards bo;
   SolvedBoards solved;
   int count = 0;
@@ -281,9 +354,21 @@ int STDCALL CalcAllTablesN(
   if (count * dealsp->no_of_tables > MAXNOOFTABLES * DDS_STRAINS)
     return RETURN_TOO_MANY_TABLES;
 
+  for (int m = 0; m < dealsp->no_of_tables; m++)
+  {
+    int const check = table_deal_checks(dealsp->deals[m]);
+    if (check != RETURN_NO_FAULT)
+      return check;
+  }
+
   int ind = 0;
-  int lastIndex = 0;
   resp->no_of_boards = 0;
+
+  // With no deals the loop below writes no boards, and bo is an uninitialised
+  // local -- solving a board from it reads indeterminate values. Return early,
+  // matching CalcAllTablesX().
+  if (dealsp->no_of_tables == 0)
+    return RETURN_NO_FAULT;
 
   for (int m = 0; m < dealsp->no_of_tables; m++)
   {
@@ -308,12 +393,14 @@ int STDCALL CalcAllTablesN(
       bo.target[ind] = -1;
       bo.solutions[ind] = 1;
       bo.mode[ind] = 1;
-      lastIndex = ind;
       ind++;
     }
   }
 
-  bo.no_of_boards = lastIndex + 1;
+  // ind counts the boards actually written; deriving the count from a
+  // last-index variable initialised to 0 claimed one board even when none
+  // had been filled in.
+  bo.no_of_boards = ind;
 
   int res = calc_all_boards_n(&bo, &solved, maxThreads);
   if (res != 1)
@@ -323,6 +410,7 @@ int STDCALL CalcAllTablesN(
 
   for (int m = 0; m < dealsp->no_of_tables; m++)
   {
+    const int tricks = remaining_tricks_from_holdings(dealsp->deals[m].cards);
     for (int strainIndex = 0; strainIndex < count; strainIndex++)
     {
       int index = m * count + strainIndex;
@@ -333,7 +421,8 @@ int STDCALL CalcAllTablesN(
       for (int first = 0; first < DDS_HANDS; first++)
       {
         resp->results[m].res_table[strain][ rho[first] ] =
-          13 - solved.solved_board[index].score[first];
+          declarer_tricks_from_leader_score(
+            tricks, solved.solved_board[index].score[first]);
       }
     }
   }
@@ -372,6 +461,16 @@ int STDCALL CalcAllTablesPBNN(
   AllParResults * presp,
   int maxThreads)
 {
+  // dls.deals and dealsp->deals both hold MAXNOOFTABLES * DDS_STRAINS
+  // entries. Bound the count before the conversion loop: unchecked, this
+  // wrote past the fixed-size local.
+  if (dealsp == nullptr)
+    return RETURN_UNKNOWN_FAULT;
+
+  if (dealsp->no_of_tables < 0 ||
+      dealsp->no_of_tables > MAXNOOFTABLES * DDS_STRAINS)
+    return RETURN_TOO_MANY_TABLES;
+
   DdTableDeals dls;
   for (int k = 0; k < dealsp->no_of_tables; k++)
     if (convert_from_pbn(dealsp->deals[k].cards, dls.deals[k].cards) != 1)
@@ -414,15 +513,57 @@ auto calc_single_deal_scores(
     return res;
   scores[0] = fut.score[0];
 
+  const bool reuse_same_board =
+    is_full_thirteen_trick_deal(deal.remainCards);
   for (int k = 1; k < DDS_HANDS; k++)
   {
-    const int hint = (k == 2 ? fut.score[0] : 13 - fut.score[0]);
     deal.first = k;
-    res = solve_same_board(ctx, deal, &fut, hint);
+    if (reuse_same_board)
+    {
+      const int hint =
+        (k == 2 ? fut.score[0] : kFullDealRemainingTricks - fut.score[0]);
+      res = solve_same_board(ctx, deal, &fut, hint);
+    }
+    else
+    {
+      // Partial deals: solve_same_board is wrong; use a full solve per leader.
+      res = solve_board(ctx, deal, target, solutions, mode, &fut);
+    }
     if (res != RETURN_NO_FAULT)
       return res;
     scores[k] = fut.score[0];
   }
+  return RETURN_NO_FAULT;
+}
+
+}  // namespace
+
+
+namespace
+{
+
+/* The *X entry points accept an arbitrary deal count by design, so the only
+   cheap guard available is the board-count product. Run it before any
+   O(numDeals) work -- allocating, converting or validating a count that is
+   already guaranteed to be rejected is wasted effort and, for the PBN
+   variant, a memory-exhaustion path. Also reports how many strains survive
+   the filter, which the caller needs anyway. */
+auto batch_count_preflight(
+  const int numDeals,
+  int const trumpFilter[DDS_STRAINS],
+  int& included) -> int
+{
+  included = 0;
+  for (int k = 0; k < DDS_STRAINS; k++)
+    if (!trumpFilter[k])
+      included++;
+
+  if (included == 0)
+    return RETURN_NO_SUIT;
+
+  if (numDeals > std::numeric_limits<int>::max() / included)
+    return RETURN_TOO_MANY_TABLES;
+
   return RETURN_NO_FAULT;
 }
 
@@ -451,21 +592,27 @@ int STDCALL CalcAllTablesX(
       return RETURN_UNKNOWN_FAULT;
 
     int included = 0;
-    for (int k = 0; k < DDS_STRAINS; k++)
-    {
-      if (!trumpFilter[k])
-        included++;
-    }
-    if (included == 0)
-      return RETURN_NO_SUIT;
+    if (int const check = batch_count_preflight(numDeals, trumpFilter, included);
+        check != RETURN_NO_FAULT)
+      return check;
 
     const bool want_par = (mode > -1) && (mode < 4) && (included == DDS_STRAINS);
     if (want_par && par == nullptr)
       return RETURN_UNKNOWN_FAULT;
 
+    // This path builds its board list directly rather than going through
+    // CalcDDtableN, so it needs the same deal validation.
+    for (int m = 0; m < numDeals; m++)
+    {
+      int const check = table_deal_checks(deals[m]);
+      if (check != RETURN_NO_FAULT)
+        return check;
+    }
+
     // Expand every deal×included-strain into one board list and solve in a
     // single parallel_all_boards_n job (heap-backed). This is the ddss-style
     // large-batch shape; legacy CalcAllTablesN remains capped at MAXNOOFTABLES.
+    // Overflow already ruled out by batch_count_preflight() above.
     const int nboards = numDeals * included;
     std::vector<Deal> boards(static_cast<unsigned>(nboards));
     std::vector<std::array<int, DDS_HANDS>> scores(static_cast<unsigned>(nboards));
@@ -528,6 +675,7 @@ int STDCALL CalcAllTablesX(
 
     for (int m = 0; m < numDeals; m++)
     {
+      const int tricks = remaining_tricks_from_holdings(deals[m].cards);
       for (int strainIndex = 0; strainIndex < included; strainIndex++)
       {
         const int index = m * included + strainIndex;
@@ -535,7 +683,9 @@ int STDCALL CalcAllTablesX(
         for (int first = 0; first < DDS_HANDS; first++)
         {
           results[m].res_table[strain][rho[first]] =
-            13 - scores[static_cast<unsigned>(index)][static_cast<unsigned>(first)];
+            declarer_tricks_from_leader_score(
+              tricks,
+              scores[static_cast<unsigned>(index)][static_cast<unsigned>(first)]);
         }
       }
     }
@@ -577,6 +727,13 @@ int STDCALL CalcAllTablesPBNX(
       return RETURN_NO_FAULT;
     if (deals == nullptr || results == nullptr || trumpFilter == nullptr)
       return RETURN_UNKNOWN_FAULT;
+
+    // Share CalcAllTablesX's preflight so a count that cannot succeed is
+    // rejected before this allocates and converts numDeals records.
+    int included = 0;
+    if (int const check = batch_count_preflight(numDeals, trumpFilter, included);
+        check != RETURN_NO_FAULT)
+      return check;
 
     std::vector<DdTableDeal> binary(static_cast<unsigned>(numDeals));
     for (int i = 0; i < numDeals; ++i)
