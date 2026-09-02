@@ -30,30 +30,34 @@ jobs:
 
       - name: Smoke test - known deal, exact expected output
         run: |
-          node -e "
-          const vm = require('vm');
-          const fs = require('fs');
-          const context = { console, require, __dirname, __filename, process, Buffer, TextDecoder, TextEncoder, setTimeout, clearTimeout, WebAssembly };
-          context.global = context; context.globalThis = context;
-          vm.createContext(context);
-          context.Module = {
-            wasmBinary: fs.readFileSync('./out/dds.wasm'),
-            onRuntimeInitialized: function() {
-              const fn = context.Module.cwrap('handleDDSRequest','string',
+          cat > /tmp/smoke_prefix.js << 'EOF'
+          var Module = {
+            instantiateWasm: function (imports, successCallback) {
+              var fs = require('fs');
+              var path = require('path');
+              var wasmBinary = fs.readFileSync(path.join(__dirname, 'dds.wasm'));
+              WebAssembly.instantiate(wasmBinary, imports).then(function (result) {
+                successCallback(result.instance, result.module);
+              });
+              return {};
+            },
+            onRuntimeInitialized: function () {
+              var fn = Module.cwrap('handleDDSRequest', 'string',
                 ['string','string','string','string','string','string','string','string','string','string']);
-              const deal = 'N:QJ6.K652.J85.T98x873.J97.AT764.Q4xK5.T83.KQ9.A7652xAT942.AQ4.32.KJ3';
-              const res = fn(deal, 'S', 'm', 'x', 'None', 'x', '00000000000000000000', 'ci', 'x', 'x');
+              var deal = 'N:QJ6.K652.J85.T98x873.J97.AT764.Q4xK5.T83.KQ9.A7652xAT942.AQ4.32.KJ3';
+              var res = fn(deal, 'S', 'm', 'x', 'None', 'x', '00000000000000000000', 'ci', 'x', 'x');
               console.log(res);
-              const expected = '\"ddtricks\":\"65657656576867568675\"';
-              if (!res.includes(expected)) {
+              var expected = '"ddtricks":"65657656576867568675"';
+              if (res.indexOf(expected) === -1) {
                 console.error('Smoke test FAILED: expected substring not found:', expected);
                 process.exit(1);
               }
               console.log('Smoke test passed.');
             }
           };
-          vm.runInContext(fs.readFileSync('./out/dds.js','utf8'), context, { filename: 'dds.js' });
-          "
+          EOF
+          cat /tmp/smoke_prefix.js out/dds.js > out/smoke_combined.js
+          node out/smoke_combined.js
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
