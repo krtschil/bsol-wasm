@@ -77,7 +77,7 @@ node out/bench_pbn_cli.js <path to pbn file> --max=<number of boards> --workers=
 Sample output:
 
 ```bash
-**node out/bench_pbn_cli.js test200.pbn --max=50 --workers=8**
+node out/bench_pbn_cli.js test200.pbn --max=50 --workers=8
 Config: file=test200.pbn, maxBoards=50, workers=8
 
 Per-worker board counts: 7, 7, 6, 6, 6, 6, 6, 6
@@ -153,7 +153,7 @@ arithmetic mean.
 Sample output:
 
 ```bash
-**./bench.sh -n 10 -d 10 -- node out/bench_pbn_cli.js test200.pbn --max=25 --workers=8**
+./bench.sh -n 10 -d 10 -- node out/bench_pbn_cli.js test200.pbn --max=25 --workers=8
 Run command 10x : node out/bench_pbn_cli.js test200.pbn --max=25 --workers=8
 ---------------------------------------------
 Run 1: 2302.0 ms
@@ -277,4 +277,9 @@ same module instance return identical, correct results, and a separate
 test that never calls `InitStart()` explicitly still matches DDS3's own
 reference double-dummy table exactly - confirming the constructor
 actually runs and nothing else is silently doing the initialisation.
+
+## Note on AI help
+
+The migration from 2.5.3 sources to DDS3 sources was done with the 
+help of Claude/Sonnet 5.
 
