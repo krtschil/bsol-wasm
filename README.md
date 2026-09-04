@@ -194,7 +194,7 @@ Some changes were applied to remove compiler warnings:
   format specifier and removing the `-Wformat` warning.
 
 
-### Include addition in DDummy.cpp
+### `include` addition in DDummy.cpp
 
 `DDummy.cpp` calls `time()` but never includes `<time.h>` directly.
 This used to work only because some other include chain (e.g. via
@@ -238,7 +238,7 @@ Absolute numbers above are from this sandbox's Emscripten 3.1.6 and
 will differ on your machine/toolchain version; the *relative* ordering
 (`-O3 -flto` clearly ahead of `-O2`) is the part expected to hold.
 
-### A second, source-level fix: `InitStart()` moved to one-time init
+### Source-level fix: `InitStart()` moved to one-time init
 
 `DDummy.cpp` used to call `InitStart(1, 1)` inside the per-request
 handler (once per `handleDDSRequest` call), which forwards to DDS3's
