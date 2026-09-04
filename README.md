@@ -208,31 +208,6 @@ that only becomes visible now. Simply add:
 #include <time.h>   // <- add this line
 ```
 
-## What has already been verified
-
-- All `library_src/*.cpp` files compile cleanly with `em++ -std=c++20`.
-- `DDummy.cpp` (with only the `time.h` addition) compiles unchanged
-  against `compat/dll.h`.
-- A full request through `handleDDSRequest` (table calculation + opening
-  leads) runs successfully in Node.js and returns a valid JSON response.
-- The 20 values of the double-dummy table were checked against DDS3's
-  own reference data (`examples/hands.cpp`, `dd_table_[0]`) – exact
-  match.
-- The final build was produced from a clean unzip of this exact package
-  and tested using the same global-`Module` loading pattern your
-  existing `dds.js` uses (not `MODULARIZE`), so it should be a drop-in
-  replacement for your current front-end integration.
-
-## Known open points for production use
-
-- Multithreading (`SolverContext`) was not tested; this build is
-  single-threaded (no `-pthread`, no `SharedArrayBuffer`).
-- The 80-byte limit for PBN deal strings (`DdTableDealPBN.cards[80]`)
-  carries over unchanged from the old version – may be relevant for
-  hands with many voids.
-- Recommended: test with your own real production requests before
-  rollout, especially edge cases like claims or doubleton situations.
-
 ## Performance improvements
 
 `build.sh` compiles and links with `-O3 -flto -DNDEBUG` (previously
