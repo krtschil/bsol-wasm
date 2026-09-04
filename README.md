@@ -30,6 +30,10 @@ time), without structurally changing DDummy.cpp.
 - `bench.sh/bench.py` - Script to batch run the benchmark tool. As the results
   of a single benchmark vary in timing it is advisable to run a couple of benchmarks
   and take arithmetic mean of the runs. 
+- `hands/` - Folder containg a number of randomly created boards 
+  (via `bigdeal` [see https://github.com/hansvanstaveren/BigDeal]), complemented by
+  two hard to solve boards.
+- `out/` - Output of `build.sh|build_bench.sh` are placed in this folder
 
 ## Prerequisite
 
@@ -72,8 +76,8 @@ node out/bench_pbn_cli.js <path to pbn file> --max=<number of boards> --workers=
 
 Sample output:
 
-```
-node out/bench_pbn_cli.js test200.pbn --max=50 --workers=8
+```bash
+**node out/bench_pbn_cli.js test200.pbn --max=50 --workers=8**
 Config: file=test200.pbn, maxBoards=50, workers=8
 
 Per-worker board counts: 7, 7, 6, 6, 6, 6, 6, 6
@@ -138,8 +142,8 @@ To account for such variations a batch of benchmarks can be run
 through `bench.sh|bench.py` (shell script and python script are 
 functionally identical). The script takes three parameters:
 
-- -n: Number of single benchmarks to run <optional, default: 10>
-- -d: Delay in seconds to sleep the script between individual benchmarks <optional, default: 10>
+- -n: Number of single benchmarks to run (*optional*, default: 10)
+- -d: Delay in seconds to sleep the script between individual benchmarks (*optional*, default: 10)
 - Separated by `--` as the last parameter the command to run (which 
   is the command to run a single benchmark) 
 
@@ -148,8 +152,8 @@ arithmetic mean.
 
 Sample output:
 
-```
-./bench.sh -n 10 -d 10 -- node out/bench_pbn_cli.js test200.pbn --max=25 --workers=8
+```bash
+**./bench.sh -n 10 -d 10 -- node out/bench_pbn_cli.js test200.pbn --max=25 --workers=8**
 Run command 10x : node out/bench_pbn_cli.js test200.pbn --max=25 --workers=8
 ---------------------------------------------
 Run 1: 2302.0 ms
