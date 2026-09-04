@@ -1,4 +1,5 @@
-# DDS3-Wasm-Build – Migration Package
+# WASM build for BSOL
+
 
 This package contains everything needed to compile your existing
 application (DDummy.cpp as the wrapper, exporting `handleDDSRequest`)
@@ -6,36 +7,171 @@ against the modernised double-dummy solver from
 https://github.com/dds-bridge/dds (as of the `develop` branch at test
 time), without structurally changing DDummy.cpp.
 
-## Update: re-synced against current upstream, output renamed, small cleanups
+## Contents
 
-Re-pulling `dds-bridge/dds` broke the previous build. Fixed, plus a
-few requested cleanups - see "Upstream regression" and "Requested
-source changes" below for the details. Output files are now named
-`dds.js` / `dds.wasm` (previously `dds_new.js` / `dds_new.wasm`)
-throughout `build.sh`, `build_bench.sh`, and this README.
+- `library_src/` – a 1:1 copy of `library/src/` from dds-bridge/dds.
+  This is the complete new solver core. Note that there is deliberately **no single "dds.cpp"**
+  anymore – the old monolithic file was split into these modules.
+- `compat/dll.h` – compatibility header. Included by `DDummy.cpp` in
+  place of the old `dll.h` (its `#include "dll.h"` resolves to this one
+  via the include path) and translates between old and new struct/field
+  names via preprocessor macros.
+- `compat/compat.cpp` – implements the two functions `DDummy.cpp` needs
+  that the new library no longer provides under the old name:
+  `InitStart()` and your own 2015 extension `CalcDDtableAndLeadsPBN()`.
+- `app/DDummy.cpp`, `app/timer.cpp`, `app/timer.h` – your original
+  files, with the three small requested changes above applied to
+  `DDummy.cpp` (see "Requested source changes"); `timer.cpp`/`timer.h`
+  remain untouched.
+- `build.sh` – the exact `em++` commands that successfully built and
+  tested this setup.
+- `build_bench.sh` - building the benchmark tool that allows to run
+  tests for performance measurements. Needs `node` to be installed to run it.
+- `bench.sh/bench.py` - Script to batch run the benchmark tool. As the results
+  of a single benchmark vary in timing it is advisable to run a couple of benchmarks
+  and take arithmetic mean of the runs. 
 
-### Upstream regression fix (in `library_src/`, not your code)
+## Prerequisite
 
-A fresh clone of `dds-bridge/dds` no longer compiles as-is:
-`library_src/api/dds_c_api.cpp` calls the legacy PascalCase functions
-(`Par`, `SidesPar`, `DealerPar`, `DealerParBin`, `SidesParBin`,
-`ConvertToDealerTextFormat`, `ConvertToSidesTextFormat`, `GetDDSInfo`,
-`ErrorMessage`) but no longer includes anything that declares them.
-`dds_c_api.h` used to pull in `<api/dll.h>` (which declares all of
-these) transitively; a later refactor replaced that with the narrower
-`<api/dds_c_data_types.h>` (struct types only), and `dds_c_api.cpp`
-itself was never updated to include `<api/dll.h>` directly. The file's
-own top-of-file comment says it forwards "straight to the
-corresponding legacy dll.h function" - confirming this was always the
-intent, just missing the include that intent assumed was present.
-Fixed with a one-line `#include <api/dll.h>` addition to
-`library_src/api/dds_c_api.cpp`, with a comment explaining why.
+A working `em++` on your PATH (recommended: `emsdk`, see
 
-### Requested source changes (in `app/DDummy.cpp`)
+https://emscripten.org/docs/getting_started/downloads.html). Tested
+with Emscripten 3.1.6; the original repo itself pins 5.0.7 via Bazel –
+both should work, but a newer version is recommended for production.
 
-Unlike every other change in this package, these were requested
-directly rather than needed to make anything compile - `DDummy.cpp` is
-no longer left completely untouched, by choice:
+## Build 
+
+### Build the wasm module
+
+```bash
+chmod +x build.sh
+./build.sh
+```
+
+Output: `out/dds.js` + `out/dds.wasm`.
+
+### Build the benchmark tool
+
+```bash
+chmod +x build_bench.sh
+./build_bench.sh
+```
+
+Output: on screen
+
+### Running a single benchmark
+
+The benchmark tool takes 3 parameters:
+
+- --max: Number of boards out of the .pbn file to be analyzed <optional, default is 0 which translates to all>
+- --workers: Number of workers that should be run to analyze the boards
+
+```
+node out/bench_pbn_cli.js <path to pbn file> --max=<number of boards> --workers=<number of workers to run>
+```
+
+Sample output:
+
+```
+node out/bench_pbn_cli.js test200.pbn --max=50 --workers=8
+Config: file=test200.pbn, maxBoards=50, workers=8
+
+Per-worker board counts: 7, 7, 6, 6, 6, 6, 6, 6
+
+Worker 6: 6 boards, own totalMs=1060.1, wall (incl. startup)=1139ms
+Worker 3: 6 boards, own totalMs=1161.5, wall (incl. startup)=1245ms
+Worker 4: 6 boards, own totalMs=1286.5, wall (incl. startup)=1371ms
+Worker 7: 6 boards, own totalMs=1317.9, wall (incl. startup)=1403ms
+Worker 2: 6 boards, own totalMs=1546.4, wall (incl. startup)=1634ms
+Worker 0: 7 boards, own totalMs=2612.3, wall (incl. startup)=2706ms
+Worker 5: 6 boards, own totalMs=3197.9, wall (incl. startup)=3275ms
+Worker 1: 7 boards, own totalMs=3330.5, wall (incl. startup)=3412ms
+
+Sum of each worker's own solve time : 15513.1 ms
+Actual wall-clock time               : 3423 ms
+=> effective parallelism factor       : 4.53x (close to 8 = good parallel scaling; close to 1 = not running in parallel)
+
+(8 worker threads, 50 boards total)
+Boards found       : 50
+Solved OK          : 50
+Solve errors       : 0
+Total time         : 3423.0 ms (wall-clock across all workers)
+Average per board  : 310.260 ms
+Median per board   : 188.057 ms
+Max per board      : 1875.629 ms
+Throughput         : 14.6 boards/sec
+(Node wall-clock check: 3423 ms)
+
+JSON: {"boards":50,"solvedOk":50,"solvedErr":0,"totalMs":3423,"avgMs":310.26003999999995,"medianMs":188.057,"maxMs":1875.629,"boardsPerSec":14.607069821793749,"workers":8}
+```
+
+With a worker count > 1, the tool splits the input lines round-robin
+across that many **Node `worker_threads`**, each loading its own
+independent instance of `bench_pbn.wasm` and solving only its share.
+This deliberately mirrors how the production application itself
+parallelises - multiple browser Web Workers, each running one
+single-threaded wasm module instance - rather than using DDS3's
+internal pthread-based multithreading (`-pthread` / `SetMaxThreads`).
+That distinction matters: enabling DDS3's own internal threading inside
+each already-parallel worker would oversubscribe the same CPU cores
+twice over, which is exactly the concern raised earlier about internal
+DDS multithreading in general (see the "Multithreading" discussion
+elsewhere in this project's history) - this benchmark mode avoids that
+by only ever running one thread per wasm instance, same as production.
+
+**Checking that it's actually parallel:** `worker_threads` run as OS
+threads *inside one Node process*, not as separate processes. A plain
+process list (Task Manager's default view, `top`, `ps`) will always
+show exactly **one** `node` entry regardless of worker count - that is
+expected, not a sign that nothing is happening in parallel. To see the
+parallelism, watch that one process's CPU%: on Linux, `top`/`htop`
+report per-process CPU as a sum across its threads, so 8 busy workers
+show up as ~800%, not 100%; on Windows, use Task Manager's "Details"
+tab or Resource Monitor's per-thread CPU view rather than the default
+process list.
+
+### Running a batch of benchmarks
+
+The times for single benchmarks vary quite a bit (e.g. depending on 
+other processes running on the computer). 
+To account for such variations a batch of benchmarks can be run 
+through `bench.sh|bench.py` (shell script and python script are 
+functionally identical). The script takes three parameters:
+
+- -n: Number of single benchmarks to run <optional, default: 10>
+- -d: Delay in seconds to sleep the script between individual benchmarks <optional, default: 10>
+- Separated by `--` as the last parameter the command to run (which 
+  is the command to run a single benchmark) 
+
+The script picks up the run time for each benchmark and calculates the 
+arithmetic mean.
+
+Sample output:
+
+```
+./bench.sh -n 10 -d 10 -- node out/bench_pbn_cli.js test200.pbn --max=25 --workers=8
+Run command 10x : node out/bench_pbn_cli.js test200.pbn --max=25 --workers=8
+---------------------------------------------
+Run 1: 2302.0 ms
+Run 2: 2460.0 ms
+Run 3: 2406.0 ms
+Run 4: 2440.0 ms
+Run 5: 2357.0 ms
+Run 6: 2280.0 ms
+Run 7: 2283.0 ms
+Run 8: 2316.0 ms
+Run 9: 2157.0 ms
+Run 10: 2260.0 ms
+---------------------------------------------
+Number of valid runs : 10 / 10
+Arithmetic mean      : 2326.100 ms
+```
+
+## Notes regarding the migration from the 2.5.3 version
+
+### In `app/DDummy.cpp`
+
+Some changes were applied to remove compiler warnings:
 
 - The three `char*` variables holding string literals (`suitLetters`,
   `cardLetters`, `direction`) are now declared `const char*`. All
@@ -53,35 +189,8 @@ no longer left completely untouched, by choice:
   format specifier is now `(int)(strlen(cards)/2)`, matching the
   format specifier and removing the `-Wformat` warning.
 
-## Contents
 
-- `library_src/` – a 1:1 copy of `library/src/` from dds-bridge/dds.
-  This is the complete new solver core (39 files, plus the one-line fix
-  above). Note that there is deliberately **no single "dds.cpp"**
-  anymore – the old monolithic file was split into these modules.
-- `compat/dll.h` – compatibility header. Included by `DDummy.cpp` in
-  place of the old `dll.h` (its `#include "dll.h"` resolves to this one
-  via the include path) and translates between old and new struct/field
-  names via preprocessor macros.
-- `compat/compat.cpp` – implements the two functions `DDummy.cpp` needs
-  that the new library no longer provides under the old name:
-  `InitStart()` and your own 2015 extension `CalcDDtableAndLeadsPBN()`.
-- `app/DDummy.cpp`, `app/timer.cpp`, `app/timer.h` – your original
-  files, with the three small requested changes above applied to
-  `DDummy.cpp` (see "Requested source changes"); `timer.cpp`/`timer.h`
-  remain untouched.
-- `build.sh` – the exact `emcc` commands that successfully built and
-  tested this setup.
-
-## Prerequisite
-
-A working `emcc` on your PATH (recommended: `emsdk`, see
-
-https://emscripten.org/docs/getting_started/downloads.html). Tested
-with Emscripten 3.1.6; the original repo itself pins 5.0.7 via Bazel –
-both should work, but a newer version is recommended for production.
-
-## The one manual change needed in DDummy.cpp
+### Include addition in DDummy.cpp
 
 `DDummy.cpp` calls `time()` but never includes `<time.h>` directly.
 This used to work only because some other include chain (e.g. via
@@ -95,21 +204,9 @@ that only becomes visible now. Simply add:
 #include <time.h>   // <- add this line
 ```
 
-That is the only change that was required in your actual application
-code to compile against the new library.
-
-## Build
-
-```bash
-chmod +x build.sh
-./build.sh
-```
-
-Output: `out/dds.js` + `out/dds.wasm`.
-
 ## What has already been verified
 
-- All `library_src/*.cpp` files compile cleanly with `emcc -std=c++20`.
+- All `library_src/*.cpp` files compile cleanly with `em++ -std=c++20`.
 - `DDummy.cpp` (with only the `time.h` addition) compiles unchanged
   against `compat/dll.h`.
 - A full request through `handleDDSRequest` (table calculation + opening
@@ -132,41 +229,7 @@ Output: `out/dds.js` + `out/dds.wasm`.
 - Recommended: test with your own real production requests before
   rollout, especially edge cases like claims or doubleton situations.
 
-## Reproducible builds
-
-Two independent issues can otherwise make `dds.wasm` differ
-byte-for-byte between machines or install locations, even though the
-compiled logic is 100% identical both times:
-
-1. **Object link order.** `find` does not guarantee a particular file
-   order - it depends on filesystem directory-entry order, which
-   depends on how/when/with-what-tool this package was unpacked. Wasm
-   function calls are LEB128-index-encoded, so a different link order
-   can shift several call-site encodings by a byte each, changing the
-   overall `.wasm` size by a few hundred bytes. Fixed by explicitly
-   sorting the file list (`find ... | sort`) and archiving with
-   `emar rcsD` (deterministic mode, strips embedded timestamps/uid/gid
-   from the `.a` archive).
-2. **Embedded absolute paths.** `ab_search.cpp` and `moves/moves.cpp`
-   are the only two files in the library that use `assert()`. Since
-   `NDEBUG` is not defined, `assert()` expands to code that embeds the
-   compiler's `__FILE__` value - i.e. the *exact absolute path* used to
-   invoke the compiler - as a string literal, for use in the failure
-   message if the assertion ever fires. Because `build.sh` resolves
-   `$LIB` etc. to an absolute path based on wherever the package
-   happens to live on disk, `ab_search.o` and `moves_moves.o` (and
-   nothing else) end up byte-different between install locations, even
-   with identical source and identical link order. Fixed by adding
-   `-ffile-prefix-map=$ROOT=/dds3-wasm-build` to every compile
-   invocation, which rewrites that embedded path to a fixed,
-   install-location-independent placeholder.
-
-With both fixes in place, rebuilding this exact package from two
-completely different, differently-named, differently-nested directories
-produces a byte-identical `dds.wasm` (verified, including the two
-previously-affected object files, `ab_search.o` and `moves_moves.o`).
-
-## Performance
+## Performance improvements
 
 `build.sh` compiles and links with `-O3 -flto -DNDEBUG` (previously
 `-O2`, no LTO, no `NDEBUG`). This was benchmarked head-to-head against
@@ -236,138 +299,3 @@ test that never calls `InitStart()` explicitly still matches DDS3's own
 reference double-dummy table exactly - confirming the constructor
 actually runs and nothing else is silently doing the initialisation.
 
-## Timing tool: how long does solving N boards take?
-
-`tools/bench_pbn.cpp` + `tools/bench_pbn_cli.js` (built via
-`build_bench.sh`) let you measure real wall-clock throughput against a
-`.pbn` file containing any number of boards, using the exact same
-solving path as `handleDDSRequest('m', ...)` - i.e.
-`CalcDDtableAndLeadsPBN()`, the same one-time module-load
-initialisation from the "Performance" section above, and the same
-`-O3 -flto -DNDEBUG` build settings.
-
-Build (after `./build.sh` has been run at least once):
-```bash
-./build_bench.sh
-node out/bench_pbn_cli.js boards.pbn          # solve every board found
-node out/bench_pbn_cli.js boards.pbn 100      # only solve the first 100
-```
-
-Accepted `.pbn` input: either a bare deal string per line
-(`N:AKQ.J92.T865.Q73 ...`) or a standard PBN `[Deal "N:..."]` tag; any
-other line (blank, other tags, `%` comments) is ignored. This is
-intentionally permissive rather than a full PBN-format parser, since
-the production app only ever needs the raw deal string.
-
-Output includes total elapsed time, average time per board, median time
-per board, maximum (worst-case) time per board, and boards/sec, both as
-human-readable text and as a single JSON line suitable for CI logs or
-scripts:
-```json
-{"boards":500,"solvedOk":500,"solvedErr":0,"totalMs":160628.2,"avgMs":321.256,"medianMs":298.041,"maxMs":1845.203,"boardsPerSec":3.1}
-```
-
-The median and max are computed from each board's individually-timed
-solve duration (not derived from the total/average), since a handful of
-unusually hard boards can pull the mean away from what a "typical"
-board actually costs - the median is more representative of what most
-requests will actually experience, and the max shows the worst case
-you might need to plan for (e.g. a request timeout budget).
-
-Tested end-to-end against a generated 500-board file of random, valid
-deals in this sandbox: all 500 solved correctly, ~321 ms/board average
-(single-threaded, this sandbox's Emscripten 3.1.6 - expect different
-absolute numbers on your machine/toolchain, but the tool's timing
-itself was cross-checked against Node's own wall clock and matched to
-within a few milliseconds out of ~160 seconds total).
-
-Note on `bench_pbn.js`'s build: unlike `dds.js`, it's built with
-`-s MODULARIZE=1 -s EXPORT_NAME=createBenchModule` rather than the
-plain/global style. This is deliberate, not an inconsistency: the
-non-modularized style only works when the code declaring
-`Module = {...}` and the generated glue code share the exact same
-JavaScript scope (true in a browser, where a preceding `<script>` tag
-shares the page's global scope with the next). Under Node's CommonJS
-module system, a separate CLI script and a `require()`'d glue file do
-*not* share scope, so that pattern silently fails to pick up
-`Module` overrides there. `dds.js` keeps the non-modularized style
-because that's what your existing front-end integration already
-expects and works with; `bench_pbn.js` is a new, standalone tool with
-no such constraint, so it uses the pattern that actually works
-reliably under Node.
-
-### Running the benchmark across multiple worker threads
-
-```bash
-node out/bench_pbn_cli.js boards.pbn --workers=4              # all boards, split across 4 workers
-node out/bench_pbn_cli.js boards.pbn --max=200 --workers=4    # first 200 boards, 4 workers
-```
-
-(A legacy positional form, `boards.pbn [maxBoards] [workers]`, is still
-accepted, but `--max=`/`--workers=` is recommended: it's easy to type
-`node bench_pbn_cli.js boards.pbn 8` intending "8 workers" when
-positional arg #2 is actually `maxBoards`, silently leaving `workers`
-at its default of 1. The tool always prints a `Config: ...` line with
-the settings it actually used, specifically so this kind of mix-up is
-caught immediately instead of silently running single-threaded.)
-
-With a worker count > 1, the tool splits the input lines round-robin
-across that many **Node `worker_threads`**, each loading its own
-independent instance of `bench_pbn.wasm` and solving only its share.
-This deliberately mirrors how the production application itself
-parallelises - multiple browser Web Workers, each running one
-single-threaded wasm module instance - rather than using DDS3's
-internal pthread-based multithreading (`-pthread` / `SetMaxThreads`).
-That distinction matters: enabling DDS3's own internal threading inside
-each already-parallel worker would oversubscribe the same CPU cores
-twice over, which is exactly the concern raised earlier about internal
-DDS multithreading in general (see the "Multithreading" discussion
-elsewhere in this project's history) - this benchmark mode avoids that
-by only ever running one thread per wasm instance, same as production.
-
-**Checking that it's actually parallel:** `worker_threads` run as OS
-threads *inside one Node process*, not as separate processes. A plain
-process list (Task Manager's default view, `top`, `ps`) will always
-show exactly **one** `node` entry regardless of worker count - that is
-expected, not a sign that nothing is happening in parallel. To see the
-parallelism, watch that one process's CPU%: on Linux, `top`/`htop`
-report per-process CPU as a sum across its threads, so 8 busy workers
-show up as ~800%, not 100%; on Windows, use Task Manager's "Details"
-tab or Resource Monitor's per-thread CPU view rather than the default
-process list.
-
-The CLI also prints its own diagnostics for this, no external tool
-needed: a `Per-worker board counts: ...` line (do all workers actually
-get a similar amount of work?), each worker's own solve time, and an
-"effective parallelism factor" - the sum of every worker's own solve
-time divided by the actual wall-clock time. A factor close to the
-worker count means real parallel scaling; a factor close to 1 means the
-workers are effectively running one after another despite being
-requested - which is exactly the symptom of the distribution bugs
-described below, and was how the third one (the `[Dealer]`/`[Deal]`
-mix-up) was tracked down.
-
-Fixed by having each worker's `benchmarkPBN()` call return its
-individual per-board solve durations (a new `times` array in the JSON
-result, alongside the existing scalar summary), and having the CLI pool
-every worker's `times` together before computing a single combined
-average and a true, exact median across all boards - regardless of how
-many workers produced them. `boardsPerSec` was correct all along and is
-unchanged: it's legitimately wall-clock-based, since that IS a
-throughput figure.
-
-Re-verified after the fix, still in this **single-core** sandbox:
-running the same 40-board file with 1 / 2 / 4 / 8 workers now shows
-`avgMs` *increasing* with worker count (330 / 550 / 1140 / 2128 ms),
-while total wall-clock time stays roughly flat (~11.5-13.5s) throughout.
-That is the mathematically correct result for one physical core: with
-more worker threads time-slicing the same single core, each
-individual board's real wall-clock solve duration genuinely gets
-longer (context-switch and cache-eviction overhead from contention),
-while the fixed total amount of work still takes roughly the same
-total time regardless of how many threads it's spread across. On a
-real multi-core machine, expect the opposite and much more useful
-picture: `avgMs`/`medianMs` should stay close to flat (matching the
-single-worker number, since each worker gets its own core and isn't
-fighting for CPU time) while `totalMs`/`boardsPerSec` improve with
-worker count, up to the number of physical cores available.
