@@ -1,0 +1,37 @@
+Config: file=hard.pbn, maxBoards=all, workers=16
+
+Per-worker board counts: 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+
+Worker 7: 1 boards, own totalMs=1110.9, wall (incl. startup)=1223ms
+Worker 8: 1 boards, own totalMs=1166.3, wall (incl. startup)=1278ms
+Worker 4: 1 boards, own totalMs=1240.2, wall (incl. startup)=1352ms
+Worker 6: 1 boards, own totalMs=1352.1, wall (incl. startup)=1423ms
+Worker 10: 1 boards, own totalMs=1797.0, wall (incl. startup)=1867ms
+Worker 11: 1 boards, own totalMs=1902.1, wall (incl. startup)=2012ms
+Worker 0: 2 boards, own totalMs=2339.6, wall (incl. startup)=2403ms
+Worker 5: 1 boards, own totalMs=2778.5, wall (incl. startup)=2856ms
+Worker 9: 1 boards, own totalMs=3050.9, wall (incl. startup)=3162ms
+Worker 15: 1 boards, own totalMs=3486.0, wall (incl. startup)=3594ms
+Worker 14: 1 boards, own totalMs=3761.9, wall (incl. startup)=3870ms
+Worker 2: 2 boards, own totalMs=4667.0, wall (incl. startup)=4780ms
+Worker 12: 1 boards, own totalMs=5115.0, wall (incl. startup)=5225ms
+Worker 13: 1 boards, own totalMs=6637.4, wall (incl. startup)=6746ms
+Worker 1: 2 boards, own totalMs=18819.5, wall (incl. startup)=18932ms
+Worker 3: 1 boards, own totalMs=151239.1, wall (incl. startup)=151311ms
+
+Sum of each worker's own solve time : 210463.5 ms
+Actual wall-clock time               : 151325 ms
+=> effective parallelism factor       : 1.39x (close to 16 = good parallel scaling; close to 1 = not running in parallel)
+
+(16 worker threads, 19 boards total)
+Boards found       : 19
+Solved OK          : 19
+Solve errors       : 0
+Total time         : 151325.0 ms (wall-clock across all workers)
+Average per board  : 11077.019 ms
+Median per board   : 1902.095 ms
+Max per board      : 151239.078 ms
+Throughput         : 0.1 boards/sec
+(Node wall-clock check: 151325 ms)
+
+JSON: {"boards":19,"solvedOk":19,"solvedErr":0,"totalMs":151325,"avgMs":11077.018894736842,"medianMs":1902.095,"maxMs":151239.078,"boardsPerSec":0.12555757475631918,"workers":16}
