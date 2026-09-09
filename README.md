@@ -171,6 +171,9 @@ Number of valid runs : 10 / 10
 Arithmetic mean      : 2326.100 ms
 ```
 
+## Benchmark results
+Some benchmark results have been added to the `hands` folder
+
 ## Notes regarding the migration from the 2.5.3 version
 
 ### In `app/DDummy.cpp`
