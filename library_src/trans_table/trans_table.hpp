@@ -8,9 +8,11 @@
 */
 
 /*
-   This is the parent class of TransTableS and TransTableL.
-   Those two are different implementations.  The S version has a
-   much smaller memory and a somewhat slower execution time.
+   This is the parent class of TransTableP, TransTableL and TransTableS.
+   They are different implementations of the same interface: P (the
+   default) stores shape-keyed relative-rank patterns, L is the paged
+   table with harvesting, and S has a much smaller memory footprint and a
+   somewhat slower execution time.
 */
 
 #pragma once
@@ -55,7 +57,11 @@ struct NodeCards // 8 bytes
   char lower_bound;     ///< Minimum tricks for side to move at this node (0-13)
   char best_move_suit;  ///< Optimal suit index (0=S, 1=H, 2=D, 3=C; matches card_suit)
   char best_move_rank;  ///< Absolute rank (2-14 for 2-A), 0 used as sentinel
-  char least_win[DDS_SUITS]; ///< Encoded lowest winning rank (0-13), used as 15 - least_win
+  char least_win[DDS_SUITS]; ///< Per suit, the number (0-13) of remaining cards at or
+                             ///< above the lowest winning rank; ab_search feeds it to
+                             ///< win_ranks[aggr][least_win] to recover those cards. Not
+                             ///< an absolute rank: 15 - least_win is the *relative* rank
+                             ///< of the lowest such card, as the dump routines print it.
 };
 
 #ifdef _MSC_VER
@@ -78,14 +84,17 @@ struct NodeCards // 8 bytes
 ///
 /// TransTable defines the interface for managing cached positions during
 /// double dummy analysis. The transposition table stores previously computed
-/// results to avoid redundant search work. Two implementations are provided:
-/// - TransTableS: Memory-efficient small transposition table
+/// results to avoid redundant search work. Three implementations are provided:
+/// - TransTableP: Shape-keyed relative-rank patterns (the default)
 /// - TransTableL: Full-featured large transposition table with paging
+/// - TransTableS: Memory-efficient small transposition table
 ///
 /// \par Memory Management Strategy
-/// Implementations use different memory strategies. TransTableS uses a pool-based
-/// approach with malloc/calloc, while TransTableL uses paged memory with
-/// harvesting. Both support configurable memory limits and graceful degradation.
+/// Implementations use different memory strategies. TransTableP grows on
+/// demand and clears itself when the next allocation would exceed the maximum,
+/// TransTableL uses paged memory with harvesting, and TransTableS uses a
+/// pool-based approach with malloc/calloc. All support configurable memory
+/// limits and graceful degradation.
 ///
 /// \par Thread Safety
 /// Not thread-safe. The transposition table must be accessed from a single
@@ -116,11 +125,15 @@ class TransTable
 
     /// \brief Set the default (soft) memory limit in megabytes.
     ///
-    /// The table will try to stay below this limit but may exceed it slightly
-    /// during search. When the limit is exceeded, the table may invoke cleanup
-    /// strategies like harvesting (in TransTableL).
+    /// Only TransTableL treats this as a soft limit: it tries to stay below it
+    /// but may exceed it slightly during search, harvesting when it does.
+    /// TransTableS ignores the value (a no-op; only the maximum is enforced).
+    /// TransTableP has no soft limit either: the value only floors the hard
+    /// maximum at make_tt(), and 0 (unset) is ignored there.
     ///
-    /// \param megabytes Desired soft memory limit in MB (0 = unlimited)
+    /// \param megabytes Desired soft memory limit in MB. 0 is not supported as
+    ///        "unlimited": TransTableL would free every pooled page on the next
+    ///        reset; pass a positive value.
     virtual auto set_memory_default(int megabytes) -> void = 0;
 
     /// \brief Set the maximum (hard) memory limit in megabytes.
@@ -141,8 +154,12 @@ class TransTable
 
     /// \brief Clear the transposition table and reset memory/statistics.
     ///
-    /// Removes all cached positions and resets internal statistics. The memory
-    /// structures are retained for reuse.
+    /// Removes all cached positions and bumps the per-reason reset counters
+    /// (other statistics accumulate across resets). The memory structures are
+    /// retained for reuse, with one exception: on TransTableP a
+    /// ResetReason::MemoryExhausted reset returns the pattern blocks (in use
+    /// and pooled) to the allocator, since pooling them could itself allocate
+    /// while over budget; the table then regrows on demand.
     ///
     /// \param reason The reason this reset was triggered
     virtual auto reset_memory(ResetReason reason) -> void = 0;

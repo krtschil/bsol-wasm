@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -13,10 +14,62 @@
 #include <api/dds_data_types.hpp>
 //#include <api/dds_api.hpp>
 #include <trans_table/trans_table_l.hpp>
+#include <trans_table/trans_table_p.hpp>
 #include <trans_table/trans_table_s.hpp>
 #include <utility/debug.h>
 
 namespace {
+
+/// Optional DDS_TT_KIND=small|large|pattern override of the configured kind.
+auto tt_kind_from_environment(TTKind configured) -> TTKind
+{
+    const char* s = std::getenv("DDS_TT_KIND");
+    if (s == nullptr) return configured;
+    const std::string value(s);
+    if (value == "small") return TTKind::Small;
+    if (value == "large") return TTKind::Large;
+    if (value == "pattern") return TTKind::Pattern;
+    return configured;
+}
+
+auto tt_kind_of(const TransTable* tt) -> TTKind
+{
+    if (dynamic_cast<const TransTableS*>(tt) != nullptr) return TTKind::Small;
+    if (dynamic_cast<const TransTableP*>(tt) != nullptr) return TTKind::Pattern;
+    return TTKind::Large;
+}
+
+auto tt_kind_letter(TTKind kind) -> char
+{
+    switch (kind) {
+        case TTKind::Small: return 'S';
+        case TTKind::Pattern: return 'P';
+        case TTKind::Large: break;
+    }
+    return 'L';
+}
+
+auto make_trans_table(TTKind kind) -> std::unique_ptr<TransTable>
+{
+    switch (kind) {
+        case TTKind::Small: return std::make_unique<TransTableS>();
+        case TTKind::Pattern: return std::make_unique<TransTableP>();
+        case TTKind::Large: break;
+    }
+    return std::make_unique<TransTableL>();
+}
+
+/// Replaces non-positive limits with the built-in THREADMEM_* values, one at
+/// a time: an unset maximum gets the built-in limit, and an unset default gets
+/// the built-in default capped by the (possibly explicit) maximum, so that a
+/// maximum-only configuration keeps its cap.
+auto fill_unset_limits(const TTKind kind, int& defMB, int& maxMB) -> void
+{
+    const int builtin_def = kind == TTKind::Small ? THREADMEM_SMALL_DEF_MB : THREADMEM_LARGE_DEF_MB;
+    const int builtin_max = kind == TTKind::Small ? THREADMEM_SMALL_MAX_MB : THREADMEM_LARGE_MAX_MB;
+    if (maxMB <= 0) maxMB = builtin_max;
+    if (defMB <= 0) defMB = std::min(builtin_def, maxMB);
+}
 
 #if defined(DDS_TOP_LEVEL) || defined(DDS_AB_STATS) || defined(DDS_AB_HITS) || \
     defined(DDS_TT_STATS) || defined(DDS_TIMING) || defined(DDS_MOVES)
@@ -68,20 +121,11 @@ auto SolverContext::trans_table() const -> TransTable*
 auto SolverContext::SearchContext::trans_table() -> TransTable* {
   if (tt_) return tt_.get();
   // Require owner (for config and utilities). If missing, fall back
-  // to Large with built-in defaults.
-  TTKind kind = (owner_ ? owner_->config().tt_kind_ : TTKind::Large);
+  // to the SolverConfig default with built-in memory limits.
+  TTKind kind = tt_kind_from_environment(owner_ ? owner_->config().tt_kind_ : SolverConfig{}.tt_kind_);
   int defMB = (owner_ ? owner_->config().tt_mem_default_mb_ : 0);
   int maxMB = (owner_ ? owner_->config().tt_mem_maximum_mb_ : 0);
-  // Final fallback to THREADMEM_* constants
-  if (defMB <= 0 || maxMB <= 0) {
-    if (kind == TTKind::Small) {
-      defMB = THREADMEM_SMALL_DEF_MB;
-      maxMB = THREADMEM_SMALL_MAX_MB;
-    } else {
-      defMB = THREADMEM_LARGE_DEF_MB;
-      maxMB = THREADMEM_LARGE_MAX_MB;
-    }
-  }
+  fill_unset_limits(kind, defMB, maxMB);
   // Optional environment overrides
   if (const char* s = std::getenv("DDS_TT_DEFAULT_MB")) {
     int v = std::atoi(s);
@@ -93,11 +137,7 @@ auto SolverContext::SearchContext::trans_table() -> TransTable* {
   }
   if (maxMB < defMB) maxMB = defMB;
 
-  // Create appropriate concrete table
-  if (kind == TTKind::Small)
-    tt_ = std::unique_ptr<TransTable>(new TransTableS());
-  else
-    tt_ = std::unique_ptr<TransTable>(new TransTableL());
+  tt_ = make_trans_table(kind);
 
   tt_->set_memory_default(defMB);
   tt_->set_memory_maximum(maxMB);
@@ -105,7 +145,7 @@ auto SolverContext::SearchContext::trans_table() -> TransTable* {
 
 #ifdef DDS_UTILITIES_LOG
   {
-    const char kch = (kind == TTKind::Small ? 'S' : 'L');
+    const char kch = tt_kind_letter(kind);
     char buf[96];
     std::snprintf(buf, sizeof(buf), "tt:create|%c|%d|%d", kch, defMB, maxMB);
     if (owner_) owner_->utilities().log_append(std::string(buf));
@@ -120,7 +160,7 @@ auto SolverContext::SearchContext::trans_table() -> TransTable* {
   if (const char* dbg = std::getenv("DDS_DEBUG_TT_CREATE")) {
     if (*dbg) {
       std::cerr << "[DDS] TT create: kind="
-                << (kind == TTKind::Small ? 'S' : 'L')
+                << tt_kind_letter(kind)
                 << " defMB=" << defMB
                 << " maxMB=" << maxMB
                 << std::endl;
@@ -146,6 +186,10 @@ auto SolverContext::dispose_trans_table() const -> void
 #endif
   // Dispose the member-owned TT (if any)
   const_cast<SolverContext*>(this)->search_.dispose_trans_table();
+  // A replacement table has not seen the current deal. Forget the deal the
+  // thread remembers so the next solve treats it as new and runs
+  // SetDealTables(), which init()s the table, even for the same cards.
+  if (thr_) std::memset(thr_->suit, 0, sizeof(thr_->suit));
 }
 
 // Defaulted destructor defined out-of-line so destruction of the
@@ -210,7 +254,7 @@ auto SolverContext::clear_tt() const -> void
   // memory (ASan: heap-use-after-free in TransTable{L,S}::lookup).
   //
   // Disposing instead makes the documented "recreates lazily on demand"
-  // behaviour real: tt_ becomes null, so the next trans_table() rebuilds from
+  // behavior real: tt_ becomes null, so the next trans_table() rebuilds from
   // the owner's config. Nothing is lost, because the kind and memory limits
   // live in SolverContext::cfg_, not in the TT instance.
   dispose_trans_table();
@@ -235,6 +279,9 @@ auto SolverContext::resize_tt(int defMB, int maxMB) const -> void
 
 auto SolverContext::configure_tt(TTKind kind, int defMB, int maxMB) -> void
 {
+  // Unset limits resolve exactly as they would on lazy creation, so that an
+  // in-place resize never hands a live table a zero maximum.
+  fill_unset_limits(tt_kind_from_environment(kind), defMB, maxMB);
   // Apply environment limit if present to preserve existing behavior.
   if (const char* s = std::getenv("DDS_TT_LIMIT_MB")) {
     int v = std::atoi(s);
@@ -250,10 +297,9 @@ auto SolverContext::configure_tt(TTKind kind, int defMB, int maxMB) -> void
   auto* tt = search_.maybe_trans_table();
   if (!tt) return; // Nothing to apply now; will take effect on lazy creation.
 
-  // If kind changes, dispose and recreate now to ensure effect is applied.
-  bool is_small = (dynamic_cast<TransTableS*>(tt) != nullptr);
-  TTKind current_kind = is_small ? TTKind::Small : TTKind::Large;
-  if (current_kind != kind) {
+  // If the effective kind (environment override included, as at creation)
+  // changes, dispose and recreate now to ensure effect is applied.
+  if (tt_kind_of(tt) != tt_kind_from_environment(kind)) {
     dispose_trans_table();
     // Force immediate creation with new config to keep behavior explicit.
     (void)trans_table();

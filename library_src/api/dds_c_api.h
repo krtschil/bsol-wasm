@@ -73,7 +73,8 @@ DLLEXPORT int dds_c_calc_par_pbn(DDS_C_SOLVER_CTX ctx,
    is decomposed into scalars rather than mirrored as a struct: passing a struct
    by value is exactly the ABI question this shim exists to avoid, and a mirror
    type would be a second definition to keep in sync. tt_kind: 0 = Small,
-   1 = Large (matching enum class TTKind). Returns NULL on failure. */
+   1 = Large, 2 = Pattern (matching enum class TTKind). Returns NULL on
+   failure. */
 DLLEXPORT DDS_C_SOLVER_CTX dds_c_create_solvercontext(int tt_kind,
                                                       int def_mb, int max_mb);
 

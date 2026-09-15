@@ -20,7 +20,12 @@
 
 // Minimal configuration scaffold for future expansion.
 // TT configuration without depending on Memory headers.
-enum class TTKind { Small, Large };
+/// Transposition table implementation:
+/// - Small: pool-based, low memory (TransTableS)
+/// - Large: paged, flat per-shape entry lists (TransTableL)
+/// - Pattern: shape → generality-ordered relative-rank patterns (TransTableP)
+/// The integer values are part of the C ABI (dds_c_create_solvercontext).
+enum class TTKind { Small = 0, Large = 1, Pattern = 2 };
 
 /**
  * @brief Configuration options for SolverContext instances.
@@ -31,7 +36,7 @@ enum class TTKind { Small, Large };
  */
 struct SolverConfig
 {
-  TTKind tt_kind_ = TTKind::Large;
+  TTKind tt_kind_ = TTKind::Pattern;
   int tt_mem_default_mb_ = 0;
   int tt_mem_maximum_mb_ = 0;
 };
