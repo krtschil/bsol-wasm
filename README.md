@@ -171,10 +171,13 @@ Number of valid runs : 10 / 10
 Arithmetic mean      : 2326.100 ms
 ```
 
+#### Note
+To get reliable benchmark results only use .pbn files with the intended number of boards to be tested. 
+The parameter --max does not pick the same boards on subsequent runs which means the results are
+not completely comparable (a subset of boards may contain hard to solve boards while another run might not).
+
 ## Benchmark results
 Some benchmark results have been added to the `hands` folder
-
-## Notes regarding the migration from the 2.5.3 version
 
 ### In `app/DDummy.cpp`
 
