@@ -21,13 +21,13 @@ if [ ! -f "$OUT/libdds3.a" ] || [ ! -f "$OUT/compat.o" ]; then
 fi
 
 APPINC="-I $COMPAT -I $LIB -I $LIB/api"
-PREFIXMAP="-ffile-prefix-map=$ROOT=/dds3-wasm-build"
+PREFIXMAP="" #-ffile-prefix-map=$ROOT=/dds3-wasm-build"
 
 echo "== Compiling bench_pbn.cpp =="
-emcc -std=c++20 -O3 -flto -DNDEBUG $PREFIXMAP $APPINC -c "$ROOT/tools/bench_pbn.cpp" -o "$OUT/bench_pbn.o"
+em++ -std=c++20 -O3 -flto -DNDEBUG $PREFIXMAP $APPINC -c "$ROOT/tools/bench_pbn.cpp" -o "$OUT/bench_pbn.o"
 
 echo "== Linking bench_pbn.js / bench_pbn.wasm =="
-emcc -std=c++20 -O3 -flto \
+em++ -std=c++20 -O3 -flto \
   "$OUT/bench_pbn.o" "$OUT/compat.o" "$OUT/libdds3.a" \
   -s WASM=1 \
   -s ALLOW_MEMORY_GROWTH=1 \
@@ -42,4 +42,4 @@ cp "$ROOT/tools/bench_pbn_cli.js" "$OUT/bench_pbn_cli.js"
 cp "$ROOT/tools/bench_pbn_worker.js" "$OUT/bench_pbn_worker.js"
 
 echo "== Done: $OUT/bench_pbn.js + $OUT/bench_pbn.wasm =="
-echo "Run with: node $OUT/bench_pbn_cli.js <file.pbn> [--max=maxBoards] [--workers=numWorkers]"
+echo "Run with: node $OUT/bench_pbn_cli.js <file.pbn> [maxBoards]"

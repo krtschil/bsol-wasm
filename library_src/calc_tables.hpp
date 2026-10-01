@@ -11,7 +11,7 @@
 
 #include <vector>
 
-#include <api/dll.h>
+#include <api/dds_data_types.hpp>
 #include <solver_context/solver_context.hpp>
 
 
@@ -21,10 +21,10 @@
  * @return 1 on success, error code otherwise
  */
 auto calc_single_common_internal(
-  SolverContext& ctx,
-  Boards const& bds,
-  SolvedBoards& solved,
-  const int bno) -> int;
+    SolverContext& ctx,
+    Boards const& bds,
+    SolvedBoards& solved,
+    const int bno) -> int;
 
 /**
  * @brief Calculate all boards with explicit solver context.
@@ -37,9 +37,9 @@ auto calc_single_common_internal(
  * @return Error code
  */
 auto calc_all_boards_n(
-  SolverContext& ctx,
-  Boards * bop,
-  SolvedBoards * solvedp) -> int;
+    SolverContext& ctx,
+    Boards * bop,
+    SolvedBoards * solvedp) -> int;
 
 /**
  * @brief Detect duplicate board calculations and build cross-reference maps.
@@ -51,6 +51,46 @@ auto calc_all_boards_n(
  * @param crossrefs Output vector mapping each board to its unique representative.
  */
 auto detect_calc_duplicates(
-  const Boards& bds,
-  std::vector<int>& uniques,
-  std::vector<int>& crossrefs) -> void;
+    const Boards& bds,
+    std::vector<int>& uniques,
+    std::vector<int>& crossrefs) -> void;
+
+// Match SolveBoard's remaining-trick count from remainCards alone.
+auto remaining_tricks_from_holdings(
+    unsigned int const cards[DDS_HANDS][DDS_SUITS]) -> int;
+
+auto declarer_tricks_from_leader_score(
+    int remaining_tricks,
+    int leader_side_score) -> int;
+
+/**
+ * @brief Unbounded CalcAllTables with optional per-strain-board timings.
+ *
+ * Same behavior as CalcAllTablesX. When @p strain_times_us is non-null, it is
+ * resized to `numDeals * included_strains` and filled with microseconds spent
+ * in each strain-board solve (batch-local board index order). A successful
+ * `numDeals == 0` call clears @p strain_times_us so reused vectors cannot keep
+ * stale timings.
+ */
+auto calc_all_tables_x(
+    int numDeals,
+    DdTableDeal const * deals,
+    int mode,
+    int const trumpFilter[DDS_STRAINS],
+    DdTableResults * results,
+    ParResults * par,
+    int maxThreads,
+    std::vector<int> * strain_times_us = nullptr) -> int;
+
+/**
+ * @brief PBN variant of calc_all_tables_x.
+ */
+auto calc_all_tables_pbn_x(
+    int numDeals,
+    DdTableDealPBN const * deals,
+    int mode,
+    int const trumpFilter[DDS_STRAINS],
+    DdTableResults * results,
+    ParResults * par,
+    int maxThreads,
+    std::vector<int> * strain_times_us = nullptr) -> int;

@@ -1,25 +1,3 @@
-/* bench_pbn.cpp - benchmark tool, exposed as a wasm function.
- *
- * Exports benchmarkPBN(pbnContent, maxBoards) -> JSON string, using the
- * exact same calling convention (EMSCRIPTEN_KEEPALIVE + malloc'd char*)
- * as DDummy.cpp's handleDDSRequest, and solving each board via
- * CalcDDtableAndLeadsPBN() - the same function handleDDSRequest('m', ...)
- * calls per request. maxBoards <= 0 means "all boards in the file".
- *
- * Accepted input formats (scanned for, line by line):
- *   1) A bare deal string, e.g.:
- *        N:AKQ.J92.T865.Q73 T94.AK87.9432.J6 8532.QT6.AK7.T92 J76.543.QJ.AK854
- *   2) A standard PBN "[Deal ...]" tag, e.g.:
- *        [Deal "N:AKQ.J92.T865.Q73 T94.AK87.9432.J6 8532.QT6.AK7.T92 J76.543.QJ.AK854"]
- * Any other line (blank lines, other PBN tags, comments starting with %)
- * is ignored. This is intentionally permissive rather than a full PBN
- * parser, since the production app only ever needs the raw deal string.
- *
- * Usage from Node (see out/bench_pbn_cli.js after building):
- *   node bench_pbn_cli.js boards.pbn
- *   node bench_pbn_cli.js boards.pbn 100      # only solve the first 100
- */
-
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -36,8 +14,6 @@ extern "C" int CalcDDtableAndLeadsPBN(struct DdTableDealPBN tableDealPBN, int so
 
 namespace
 {
-  // Extracts the deal string from either a bare line or a [Deal "..."] tag.
-  // Returns an empty string if the line doesn't look like a deal at all.
   std::string extractDeal(const std::string &lineIn)
   {
     std::string line = lineIn;
@@ -49,14 +25,6 @@ namespace
       return "";
 
     std::string candidate;
-    // Note the trailing space: "[Deal " (with the space) but NOT
-    // "[Dealer " - a naive prefix match on "[Deal" alone would
-    // incorrectly also match the *different* [Dealer "N"] PBN tag
-    // (who deals first), since "Dealer" starts with the same four
-    // letters. That bug caused entire worker chunks to end up
-    // containing nothing but [Dealer ...] tags when a .pbn file has
-    // one per board record alternating 1:1 with real [Deal ...] tags -
-    // silently starving that worker of all real work.
     if (line.rfind("[Deal ", 0) == 0)
     {
       auto first = line.find('"');
@@ -79,17 +47,70 @@ namespace
     return "";
   }
 
-  std::vector<std::string> loadDeals(const std::string &content, int maxBoards)
+  // Extracts the value of a [Board "..."] PBN tag. Note the trailing
+  // space in the prefix check, same reasoning as extractDeal()'s
+  // "[Deal " check: a bare "[Board" prefix match could in principle
+  // collide with some other differently-named tag that happens to
+  // start with the same letters, so we require whitespace right after
+  // the tag name, matching how PBN tags are always written.
+  std::string extractBoardLabel(const std::string &lineIn)
   {
-    std::vector<std::string> deals;
+    std::string line = lineIn;
+    while (!line.empty() && (line.back() == '\r' || line.back() == '\n' ||
+                              line.back() == ' ' || line.back() == '\t'))
+      line.pop_back();
+
+    if (line.rfind("[Board ", 0) != 0)
+      return "";
+
+    auto first = line.find('"');
+    auto last = line.rfind('"');
+    if (first == std::string::npos || last == std::string::npos || last <= first)
+      return "";
+
+    return line.substr(first + 1, last - first - 1);
+  }
+
+  struct DealEntry
+  {
+    std::string deal;
+    std::string label;
+  };
+
+  std::vector<DealEntry> loadDeals(const std::string &content, int maxBoards)
+  {
+    std::vector<DealEntry> deals;
     std::istringstream in(content);
     std::string line;
+    std::string pendingLabel;
+    int seq = 0;
+
     while (std::getline(in, line))
     {
+      std::string boardLabel = extractBoardLabel(line);
+      if (!boardLabel.empty())
+      {
+        // Remember it for whichever [Deal ...] line follows - PBN
+        // records list [Board "N"] before [Deal "..."] for the same
+        // board. A [Board ...] line is never itself a deal line, so
+        // move on to the next line without trying extractDeal() on it.
+        pendingLabel = boardLabel;
+        continue;
+      }
+
       std::string deal = extractDeal(line);
       if (!deal.empty())
       {
-        deals.push_back(deal);
+        seq++;
+        // Fall back to a sequential number when the input has no
+        // [Board ...] tags at all (e.g. bare "N:..." lines) or when a
+        // deal line appears without one preceding it - so the tool
+        // still works on minimal, tag-free input, just without a
+        // "real" board label to show.
+        std::string label = !pendingLabel.empty() ? pendingLabel : std::to_string(seq);
+        deals.push_back({deal, label});
+        pendingLabel.clear();
+
         if (maxBoards > 0 && static_cast<int>(deals.size()) >= maxBoards)
           break;
       }
@@ -100,7 +121,7 @@ namespace
 
 extern "C" char *EMSCRIPTEN_KEEPALIVE benchmarkPBN(char *pbnContent, int maxBoards)
 {
-  std::vector<std::string> deals = loadDeals(pbnContent ? pbnContent : "", maxBoards);
+  std::vector<DealEntry> deals = loadDeals(pbnContent ? pbnContent : "", maxBoards);
 
   if (deals.empty())
   {
@@ -111,7 +132,7 @@ extern "C" char *EMSCRIPTEN_KEEPALIVE benchmarkPBN(char *pbnContent, int maxBoar
   }
 
   int solutions[20];
-  for (int i = 0; i < 20; i++) solutions[i] = 1; // table only, no lead-by-lead detail
+  for (int i = 0; i < 20; i++) solutions[i] = 1;
 
   int solved_ok = 0;
   int solved_err = 0;
@@ -120,12 +141,10 @@ extern "C" char *EMSCRIPTEN_KEEPALIVE benchmarkPBN(char *pbnContent, int maxBoar
 
   auto t0 = std::chrono::steady_clock::now();
 
-  for (const auto &dealStr : deals)
+  for (const auto &entry : deals)
   {
     DdTableDealPBN tableDealPBN;
-    // DdTableDealPBN.cards is a fixed 80-byte buffer (unchanged since the
-    // original DDS 2.x era, see the README) - guard against overlong lines.
-    std::strncpy(tableDealPBN.cards, dealStr.c_str(), sizeof(tableDealPBN.cards) - 1);
+    std::strncpy(tableDealPBN.cards, entry.deal.c_str(), sizeof(tableDealPBN.cards) - 1);
     tableDealPBN.cards[sizeof(tableDealPBN.cards) - 1] = '\0';
 
     DdTableResults table;
@@ -144,11 +163,6 @@ extern "C" char *EMSCRIPTEN_KEEPALIVE benchmarkPBN(char *pbnContent, int maxBoar
   double avgMs = totalMs / static_cast<double>(deals.size());
   double boardsPerSec = 1000.0 / avgMs;
 
-  // Median of the per-board solve times. Using the individually-timed
-  // per-board durations (perBoardMs) rather than deriving it from
-  // totalMs/avgMs, since the median needs the actual distribution, not
-  // just the mean - a handful of unusually hard/easy boards can pull
-  // the mean away from what a "typical" board actually costs.
   std::vector<double> sorted = perBoardMs;
   std::sort(sorted.begin(), sorted.end());
   size_t n = sorted.size();
@@ -156,19 +170,9 @@ extern "C" char *EMSCRIPTEN_KEEPALIVE benchmarkPBN(char *pbnContent, int maxBoar
     ? sorted[n / 2]
     : (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0;
 
-  // "times" carries every individual per-board duration. This is what
-  // lets a caller correctly pool results across several parallel
-  // instances (e.g. bench_pbn_cli.js's multi-worker mode): avg/median
-  // of *latency* (how long one board takes to solve) must be computed
-  // from the individual solve durations, never from a parallel wall-clock
-  // time divided by a board count - that conflates a throughput measure
-  // with a latency measure and produces numbers that shrink simply
-  // because more workers were used, independent of whether any of them
-  // ran in true parallel. Only "boards/sec" is legitimately wall-clock
-  // based, since that IS a throughput figure.
   std::string out;
-  out.reserve(128 + perBoardMs.size() * 12);
-  char scratch[160];
+  out.reserve(256 + perBoardMs.size() * 24);
+  char scratch[192];
 
   snprintf(scratch, sizeof(scratch),
     "{\"boards\":%zu,\"solvedOk\":%d,\"solvedErr\":%d,\"totalMs\":%.1f,\"avgMs\":%.3f,\"medianMs\":%.3f,\"boardsPerSec\":%.1f,\"times\":[",
@@ -180,10 +184,26 @@ extern "C" char *EMSCRIPTEN_KEEPALIVE benchmarkPBN(char *pbnContent, int maxBoar
     snprintf(scratch, sizeof(scratch), i == 0 ? "%.3f" : ",%.3f", perBoardMs[i]);
     out += scratch;
   }
+
+  // "labels" carries each board's real [Board "N"] number (or a
+  // sequential fallback when the input has none), in the same order as
+  // "times" - so index i of one corresponds to index i of the other.
+  // Escaping is defensive: real PBN board labels are simple numbers in
+  // practice, but the label text still comes from an external file.
+  out += "],\"labels\":[";
+  for (size_t i = 0; i < deals.size(); i++)
+  {
+    out += (i == 0 ? "\"" : ",\"");
+    for (char c : deals[i].label)
+    {
+      if (c == '"' || c == '\\') out += '\\';
+      out += c;
+    }
+    out += "\"";
+  }
   out += "]}";
 
   char *result = (char *)malloc(out.size() + 1);
   memcpy(result, out.c_str(), out.size() + 1);
   return result;
 }
-

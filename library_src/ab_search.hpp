@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include <api/dds.h>
+#include <api/dds_data_types.hpp>
 #include <solver_context/solver_context.hpp>
 
 auto ab_search(
@@ -95,6 +95,20 @@ auto apply_ab_tt_lookup(
     int hand,
     SolverContext& ctx,
     bool& score_flag) -> bool;
+
+/// Store an ab_search_0 result in the TT. `our_win_ranks` is the sufficient
+/// set of cards the bound depends on (the search's accumulated ranks after
+/// the move loop). `add()` requires a preceding `lookup()` for the same
+/// trick/hand.
+auto store_ab_tt_result(
+    Pos* pos_point,
+    int target,
+    int depth,
+    int tricks,
+    int hand,
+    bool value,
+    SolverContext& ctx,
+    const unsigned short our_win_ranks[]) -> void;
 
 // Evaluate terminal position using the provided context.
 auto evaluate_with_context(

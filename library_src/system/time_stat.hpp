@@ -12,8 +12,6 @@
 
 #include <string>
 
-using namespace std;
-
 
 /**
  * @brief Timing statistics accumulator for bridge double dummy solver.
@@ -24,13 +22,13 @@ using namespace std;
  */
 class TimeStat
 {
-  private:
+    private:
 
     int number;
     long long cum;
     double cumsq;
 
-  public:
+    public:
 
     /**
      * @brief Construct a new TimeStat object.
@@ -50,15 +48,15 @@ class TimeStat
 
     void Set(const int timeUser);
     void Set(
-      const int timeUser,
-      const double timesq);
+        const int timeUser,
+        const double timesq);
 
     void operator += (const TimeStat& add);
 
     bool Used() const;
 
-    string Header() const;
-    string Line() const;
+    std::string Header() const;
+    std::string Line() const;
 };
 
 #endif

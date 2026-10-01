@@ -18,13 +18,11 @@
 #include <vector>
 #include <array>
 
-#include <api/dds.h>
-
-using namespace std;
+#include <api/dds_data_types.hpp>
 
 typedef void (*FduplType)(
-  const Boards& bds, vector<int>& uniques, vector<int>& crossrefs);
-typedef void (*FcopyType)(const vector<int>& crossrefs);
+    const Boards& bds, std::vector<int>& uniques, std::vector<int>& crossrefs);
+typedef void (*FcopyType)(const std::vector<int>& crossrefs);
 
 
 /**
@@ -38,26 +36,26 @@ typedef void (*FcopyType)(const vector<int>& crossrefs);
  */
 class System
 {
-  private:
+    private:
     int num_threads_;
     int sys_mem_mb_;
 
     unsigned preferred_system_;
 
-    vector<bool> available_system_;
-  
+    std::vector<bool> available_system_;
+
     public:
 
-    string get_version(
-      int& major,
-      int& minor,
-      int& patch) const;
-    string get_system(int& sys) const;
-    string get_bits(int& bits) const;
-    string get_compiler(int& comp) const;
+    std::string get_version(
+        int& major,
+        int& minor,
+        int& patch) const;
+    std::string get_system(int& sys) const;
+    std::string get_bits(int& bits) const;
+    std::string get_compiler(int& comp) const;
     int get_cores() const;
-    string get_constructor(int& cons) const;
-    string get_threading(int& thr) const;
+    std::string get_constructor(int& cons) const;
+    std::string get_threading(int& thr) const;
     int get_memory_max() const { return sys_mem_mb_; }
     int get_num_threads() const { return num_threads_; }
 
@@ -78,12 +76,12 @@ class System
     void reset();
 
     int register_params(
-      const int n_threads,
-      const int mem_usable_mb);
+        const int n_threads,
+        const int mem_usable_mb);
 
     void get_hardware(
-      int& core_count,
-      unsigned long long& kilobytes_free) const;
+        int& core_count,
+        unsigned long long& kilobytes_free) const;
 
     int prefer_threading(const unsigned code);
 };

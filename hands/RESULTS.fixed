@@ -1,0 +1,129 @@
+Config: file=fixed.pbn.pbn, maxBoards=all, workers=16
+
+Config: file=fixed.pbn, maxBoards=all, workers=16
+
+Per-worker board counts: 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1
+
+Worker 9: 2 boards, own totalMs=199.3, wall (incl. startup)=261ms
+Worker 10: 1 boards, own totalMs=212.4, wall (incl. startup)=315ms
+Worker 15: 1 boards, own totalMs=369.7, wall (incl. startup)=432ms
+Worker 7: 2 boards, own totalMs=397.3, wall (incl. startup)=501ms
+Worker 12: 1 boards, own totalMs=628.8, wall (incl. startup)=688ms
+Worker 1: 2 boards, own totalMs=732.7, wall (incl. startup)=839ms
+Worker 3: 2 boards, own totalMs=778.3, wall (incl. startup)=840ms
+Worker 8: 2 boards, own totalMs=743.5, wall (incl. startup)=848ms
+Worker 14: 1 boards, own totalMs=899.6, wall (incl. startup)=959ms
+Worker 4: 2 boards, own totalMs=1077.6, wall (incl. startup)=1128ms
+Worker 5: 2 boards, own totalMs=1111.1, wall (incl. startup)=1167ms
+Worker 0: 2 boards, own totalMs=1133.7, wall (incl. startup)=1197ms
+Worker 6: 2 boards, own totalMs=1202.3, wall (incl. startup)=1256ms
+Worker 11: 1 boards, own totalMs=1184.0, wall (incl. startup)=1287ms
+Worker 13: 1 boards, own totalMs=1338.5, wall (incl. startup)=1439ms
+Worker 2: 2 boards, own totalMs=2124.3, wall (incl. startup)=2231ms
+
+Sum of each worker's own solve time : 14133.1 ms
+Actual wall-clock time               : 2240 ms
+=> effective parallelism factor       : 6.31x (close to 16 = good parallel scaling; close to 1 = not running in parallel)
+
+(16 worker threads, 26 boards total)
+Boards found       : 26
+Solved OK          : 26
+Solve errors       : 0
+Total time         : 2240.0 ms (wall-clock across all workers)
+Average per board  : 543.578 ms
+Median per board   : 434.412 ms
+Max per board      : 1338.471 ms
+Throughput         : 11.6 boards/sec
+(Node wall-clock check: 2240 ms)
+
+JSON: {"boards":26,"solvedOk":26,"solvedErr":0,"totalMs":2240,"avgMs":543.5784615384616,"medianMs":434.41200000000003,"maxMs":1338.471,"boardsPerSec":11.607142857142858,"workers":16}
+Config: file=fixed.pbn, maxBoards=all, workers=8
+
+Per-worker board counts: 4, 4, 3, 3, 3, 3, 3, 3
+
+Worker 7: 3 boards, own totalMs=517.4, wall (incl. startup)=560ms
+Worker 1: 4 boards, own totalMs=774.0, wall (incl. startup)=863ms
+Worker 4: 3 boards, own totalMs=1057.6, wall (incl. startup)=1098ms
+Worker 0: 4 boards, own totalMs=1088.7, wall (incl. startup)=1131ms
+Worker 6: 3 boards, own totalMs=1618.6, wall (incl. startup)=1666ms
+Worker 3: 3 boards, own totalMs=1768.5, wall (incl. startup)=1857ms
+Worker 2: 3 boards, own totalMs=2199.9, wall (incl. startup)=2244ms
+Worker 5: 3 boards, own totalMs=2229.9, wall (incl. startup)=2318ms
+
+Sum of each worker's own solve time : 11254.6 ms
+Actual wall-clock time               : 2326 ms
+=> effective parallelism factor       : 4.84x (close to 8 = good parallel scaling; close to 1 = not running in parallel)
+
+(8 worker threads, 26 boards total)
+Boards found       : 26
+Solved OK          : 26
+Solve errors       : 0
+Total time         : 2326.0 ms (wall-clock across all workers)
+Average per board  : 432.864 ms
+Median per board   : 321.619 ms
+Max per board      : 1298.928 ms
+Throughput         : 11.2 boards/sec
+(Node wall-clock check: 2326 ms)
+
+JSON: {"boards":26,"solvedOk":26,"solvedErr":0,"totalMs":2326,"avgMs":432.8638461538461,"medianMs":321.619,"maxMs":1298.928,"boardsPerSec":11.17798796216681,"workers":8}
+Config: file=fixed.pbn, maxBoards=all, workers=4
+
+Per-worker board counts: 7, 7, 6, 6
+
+Worker 3: 6 boards, own totalMs=1752.9, wall (incl. startup)=1809ms
+Worker 0: 7 boards, own totalMs=2048.7, wall (incl. startup)=2108ms
+Worker 1: 7 boards, own totalMs=2497.4, wall (incl. startup)=2531ms
+Worker 2: 6 boards, own totalMs=3231.1, wall (incl. startup)=3290ms
+
+Sum of each worker's own solve time : 9530.1 ms
+Actual wall-clock time               : 3298 ms
+=> effective parallelism factor       : 2.89x (close to 4 = good parallel scaling; close to 1 = not running in parallel)
+
+(4 worker threads, 26 boards total)
+Boards found       : 26
+Solved OK          : 26
+Solve errors       : 0
+Total time         : 3298.0 ms (wall-clock across all workers)
+Average per board  : 366.543 ms
+Median per board   : 269.444 ms
+Max per board      : 1240.890 ms
+Throughput         : 7.9 boards/sec
+(Node wall-clock check: 3298 ms)
+
+JSON: {"boards":26,"solvedOk":26,"solvedErr":0,"totalMs":3298,"avgMs":366.5431153846154,"medianMs":269.444,"maxMs":1240.89,"boardsPerSec":7.883565797453001,"workers":4}
+Config: file=fixed.pbn, maxBoards=all, workers=2
+
+Per-worker board counts: 13, 13
+
+Worker 1: 13 boards, own totalMs=4200.6, wall (incl. startup)=4234ms
+Worker 0: 13 boards, own totalMs=5181.5, wall (incl. startup)=5218ms
+
+Sum of each worker's own solve time : 9382.1 ms
+Actual wall-clock time               : 5226 ms
+=> effective parallelism factor       : 1.80x (close to 2 = good parallel scaling; close to 1 = not running in parallel)
+
+(2 worker threads, 26 boards total)
+Boards found       : 26
+Solved OK          : 26
+Solve errors       : 0
+Total time         : 5226.0 ms (wall-clock across all workers)
+Average per board  : 360.848 ms
+Median per board   : 264.873 ms
+Max per board      : 1237.464 ms
+Throughput         : 5.0 boards/sec
+(Node wall-clock check: 5226 ms)
+
+JSON: {"boards":26,"solvedOk":26,"solvedErr":0,"totalMs":5226,"avgMs":360.8484230769231,"medianMs":264.8735,"maxMs":1237.464,"boardsPerSec":4.975124378109452,"workers":2}
+Config: file=fixed.pbn, maxBoards=all, workers=1
+
+Boards found       : 26
+Solved OK          : 26
+Solve errors       : 0
+Total time         : 9215.8 ms
+Average per board  : 354.453 ms
+Median per board   : 262.012 ms
+Max per board      : 1210.936 ms
+Throughput         : 2.8 boards/sec
+(Node wall-clock check: 9218 ms)
+
+JSON: {"boards":26,"solvedOk":26,"solvedErr":0,"totalMs":9215.8,"avgMs":354.453,"medianMs":262.012,"boardsPerSec":2.8,"times":[215.672,162.264,668.841,77.343,45.25,467.503,120.382,105.279,87.169,19.791,124.196,851.427,379.841,1054.694,475.702,182.868,410.975,222.018,1210.936,310.38,518.567,415.629,558.205,156.781,302.007,72.037],"maxMs":1210.936}

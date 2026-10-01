@@ -9,22 +9,22 @@
 
 #pragma once
 
-#include <api/dds.h>
+#include <api/dds_data_types.hpp>
 #include <solver_context/solver_context.hpp>
 
 
 bool LaterTricksMIN(
-  Pos& tpos,
-  const int hand,
-  const int depth,
-  const int target,
-  const int trump,
-  SolverContext& ctx);
+    Pos& tpos,
+    const int hand,
+    const int depth,
+    const int target,
+    const int trump,
+    SolverContext& ctx);
 
 bool LaterTricksMAX(
-  Pos& tpos,
-  const int hand,
-  const int depth,
-  const int target,
-  const int trump,
-  SolverContext& ctx);
+    Pos& tpos,
+    const int hand,
+    const int depth,
+    const int target,
+    const int trump,
+    SolverContext& ctx);

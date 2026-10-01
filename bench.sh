@@ -8,7 +8,7 @@
 #   ./bench.sh -n 10 -d 2 -- your command with args
 #
 # Example
-#   ./bench.sh -n 5 -d 1.5 -- ./mein_benchmark --flag value
+#   ./bench.sh -n 5 -d 1.5 -- ./my_benchmark --flag value
 #
 set -euo pipefail
 
@@ -16,7 +16,7 @@ RUNS=10
 DELAY=10
 
 usage() {
-    echo "Usage: $0 [-n ANZAHL_LAEUFE] [-d DELAY_SEKUNDEN] -- KOMMANDO [ARGS...]"
+    echo "Usage: $0 [-n NUMBER_RUNS] [-d DELAY_SECONDS] -- COMMAND [ARGS...]"
     echo "  -n   Number of repeats (Standard: 10)"
     echo "  -d   Sleeptime between runs in seconds, e.g. 1 or 0.5 (Standard: 10)"
     exit 1
